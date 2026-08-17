@@ -1,16 +1,12 @@
 <?php
-<<<<<<< HEAD
 require_once __DIR__ . '/db.php';
-
 function get_ip() {
     if (!empty($_SERVER['HTTP_CLIENT_IP'])) return $_SERVER['HTTP_CLIENT_IP'];
     if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) return explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0];
     return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
 }
-
 $campaign_id = filter_input(INPUT_GET, 'cid', FILTER_VALIDATE_INT) ?: filter_input(INPUT_POST, 'cid', FILTER_VALIDATE_INT);
 $employee_id = filter_input(INPUT_GET, 'eid', FILTER_VALIDATE_INT) ?: filter_input(INPUT_POST, 'eid', FILTER_VALIDATE_INT);
-
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if ($campaign_id && $employee_id) {
         $stmt = $pdo->prepare("INSERT INTO tracking_logs (campaign_id, employee_id, action, ip, user_agent, meta) VALUES (:cid, :eid, 'clicked', :ip, :ua, :meta)");
@@ -18,7 +14,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         try { $stmt->execute([':cid'=>$campaign_id, ':eid'=>$employee_id, ':ip'=>get_ip(), ':ua'=>substr($_SERVER['HTTP_USER_AGENT'] ?? '',0,512), ':meta'=>$meta]); } catch (\Exception $e) {}
     }
 }
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($campaign_id && $employee_id) {
         $stmt = $pdo->prepare("INSERT INTO tracking_logs (campaign_id, employee_id, action, ip, user_agent, meta) VALUES (:cid, :eid, 'submitted_data', :ip, :ua, :meta)");
@@ -65,15 +60,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   </div>
 </body>
 </html>
-=======
-	if (!empty($_SERVER['HTTPS']) && ('on' == $_SERVER['HTTPS'])) {
-		$uri = 'https://';
-	} else {
-		$uri = 'http://';
-	}
-	$uri .= $_SERVER['HTTP_HOST'];
-	header('Location: '.$uri.'/dashboard/');
-	exit;
-?>
-Something is wrong with the XAMPP installation :-(
->>>>>>> a710443fa203dd4ee0022b733bf96d1e49b24b71
