@@ -1,6 +1,9 @@
 <?php
-// detector.php — Phishing Email Detector
+// detector.php — Phishing Detection Engine
+require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/db.php';
+
+requireUser();
 
 $result = null;
 $score = 0;
@@ -10,32 +13,33 @@ $sender = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email_text = trim($_POST['email_text'] ?? '');
-    $sender = trim($_POST['sender'] ?? '');
+    $sender     = trim($_POST['sender'] ?? '');
 
     if ($email_text !== '') {
 
-        $urgency_words = ['urgent', 'immediately', 'verify your account', 'suspended', 'act now',
-                           'limited time', 'click here', 'confirm your identity', 'unusual activity',
-                           'locked', 'expire', 'final notice'];
+        // 1. Urgency Language
+        $urgency_words = ['urgent', 'immediately', 'verify your account', 'suspended', 'act now', 'click here', 'unusual activity', 'locked'];
         $found_urgency = [];
         foreach ($urgency_words as $w) {
             if (stripos($email_text, $w) !== false) $found_urgency[] = $w;
         }
         if ($found_urgency) {
             $score += 20;
-            $flags[] = "Urgency/pressure language detected: " . implode(', ', $found_urgency);
+            $flags[] = "Urgency words detected: " . implode(', ', $found_urgency);
         }
 
-        $sensitive_words = ['password', 'ssn', 'social security', 'credit card', 'bank account', 'pin number', 'login credentials'];
+        // 2. Sensitive Data Requests
+        $sensitive_words = ['password', 'ssn', 'social security', 'credit card', 'bank account', 'pin number'];
         $found_sensitive = [];
         foreach ($sensitive_words as $w) {
             if (stripos($email_text, $w) !== false) $found_sensitive[] = $w;
         }
         if ($found_sensitive) {
             $score += 25;
-            $flags[] = "Requests sensitive information: " . implode(', ', $found_sensitive);
+            $flags[] = "Sensitive data requested: " . implode(', ', $found_sensitive);
         }
 
+        // 3. Link Analysis
         preg_match_all('/https?:\/\/[^\s"\'<>]+/i', $email_text, $matches);
         $urls = $matches[0];
         $suspicious_urls = [];
@@ -44,54 +48,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$host) continue;
 
             if (filter_var($host, FILTER_VALIDATE_IP)) {
-                $suspicious_urls[] = "$url (uses raw IP address instead of a domain)";
+                $suspicious_urls[] = "$url (uses IP address)";
                 continue;
             }
-            $shorteners = ['bit.ly','tinyurl.com','t.co','goo.gl','ow.ly','is.gd'];
+            $shorteners = ['bit.ly', 'tinyurl.com', 't.co', 'goo.gl'];
             foreach ($shorteners as $s) {
                 if (stripos($host, $s) !== false) {
-                    $suspicious_urls[] = "$url (uses a link shortener, destination hidden)";
+                    $suspicious_urls[] = "$url (shortened link)";
                     break;
                 }
-            }
-            $bad_tlds = ['.xyz', '.top', '.zip', '.rest', '.click', '.support', '.tk'];
-            foreach ($bad_tlds as $tld) {
-                if (str_ends_with(strtolower($host), $tld)) {
-                    $suspicious_urls[] = "$url (unusual top-level domain: $tld)";
-                    break;
-                }
-            }
-            if (preg_match('/-(login|secure|verify|account|update|support)\b/i', $host)) {
-                $suspicious_urls[] = "$url (domain uses brand-lookalike wording)";
             }
         }
         if ($suspicious_urls) {
             $score += 25;
-            $flags[] = "Suspicious link(s) found: " . implode(' | ', $suspicious_urls);
-        } elseif ($urls) {
-            $flags[] = count($urls) . " link(s) found — no obvious red flags, but always hover to confirm destination.";
+            $flags[] = "Suspicious links found: " . implode(' | ', $suspicious_urls);
         }
 
-        if ($sender !== '') {
-            $sender_domain = substr(strrchr($sender, "@"), 1);
-            if ($sender_domain) {
-                $free_providers = ['gmail.com','yahoo.com','outlook.com','hotmail.com'];
-                if (in_array(strtolower($sender_domain), $free_providers) &&
-                    preg_match('/\b(bank|support|security|hr|payroll|it[\s\-]?dept)\b/i', $email_text)) {
-                    $score += 15;
-                    $flags[] = "Sender uses a free email provider ($sender_domain) but claims to be an official department.";
-                }
-            }
-        }
-
-        if (preg_match('/\b(dear customer|dear user|dear valued member|dear account holder)\b/i', $email_text)) {
+        // 4. Generic Greetings
+        if (preg_match('/\b(dear customer|dear user|dear valued member)\b/i', $email_text)) {
             $score += 10;
-            $flags[] = "Generic greeting used instead of your actual name — common in mass phishing emails.";
-        }
-
-        if (preg_match('/(!!!|\?\?\?|[A-Z]{6,})/', $email_text)) {
-            $score += 5;
-            $flags[] = "Excessive punctuation or all-caps text detected — common attention-grabbing tactic.";
+            $flags[] = "Generic greeting detected.";
         }
 
         $score = min($score, 100);
@@ -101,18 +77,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($score >= 30) {
             $result = ['label' => 'Medium Risk — Be Cautious', 'color' => 'warning'];
         } else {
-            $result = ['label' => 'Low Risk — No Strong Red Flags', 'color' => 'success'];
+            $result = ['label' => 'Low Risk — Safe Email', 'color' => 'success'];
         }
 
+        // Insert Scan Log
         try {
-            $stmt = $pdo->prepare("INSERT INTO detector_checks (employee_id, risk_score, flags_count, verdict) VALUES (:eid, :score, :fc, :verdict)");
+            $stmt = $pdo->prepare("INSERT INTO detector_checks (user_id, input_content, risk_score, flags_count, verdict) VALUES (:uid, :content, :score, :fc, :verdict)");
             $stmt->execute([
-                ':eid' => isset($_GET['eid']) ? (int)$_GET['eid'] : null,
-                ':score' => $score,
-                ':fc' => count($flags),
+                ':uid'     => $_SESSION['user_id'],
+                ':content' => $email_text,
+                ':score'   => $score,
+                ':fc'      => count($flags),
                 ':verdict' => $result['label']
             ]);
-        } catch (\Exception $e) {}
+        } catch (PDOException $e) {}
     }
 }
 ?>
@@ -120,59 +98,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>PhishShield — Email Detector</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
-<nav class="navbar navbar-dark bg-dark shadow-sm">
+<nav class="navbar navbar-dark bg-dark">
   <div class="container">
-    <span class="navbar-brand mb-0 h1">🛡️ PhishShield — Email Detector</span>
-    <div>
-      <a href="manage.php" class="btn btn-outline-light btn-sm me-2">Admin</a>
-      <a href="dashboard.php" class="btn btn-outline-light btn-sm">Dashboard</a>
+    <span class="navbar-brand">🛡️ PhishShield</span>
+    <div class="text-light">
+      Welcome, <strong><?= htmlspecialchars($_SESSION['user_name'] ?? 'User') ?></strong>
+      <a href="dashboard.php" class="btn btn-outline-light btn-sm ms-2">My Dashboard</a>
+      <a href="logout.php" class="btn btn-danger btn-sm ms-2">Logout</a>
     </div>
   </div>
 </nav>
-
 <div class="container py-5">
   <div class="row justify-content-center">
     <div class="col-lg-8">
       <div class="card shadow-sm mb-4">
         <div class="card-body">
-          <h4>Check a Suspicious Email</h4>
-          <p class="text-muted">Paste the full email content below. We'll scan it for common phishing red flags.</p>
+          <h4>Scan Suspicious Email</h4>
           <form method="post">
             <div class="mb-3">
-              <label class="form-label">Sender's email address (optional)</label>
-              <input type="text" name="sender" class="form-control" placeholder="e.g. support@paypa1-secure.com" value="<?= htmlspecialchars($sender) ?>">
+              <label>Sender Email (optional)</label>
+              <input type="text" name="sender" class="form-control" value="<?= htmlspecialchars($sender) ?>">
             </div>
             <div class="mb-3">
-              <label class="form-label">Email content</label>
-              <textarea name="email_text" rows="8" class="form-control" placeholder="Paste the email text here..." required><?= htmlspecialchars($email_text) ?></textarea>
+              <label>Email Content</label>
+              <textarea name="email_text" rows="7" class="form-control" required><?= htmlspecialchars($email_text) ?></textarea>
             </div>
-            <button type="submit" class="btn btn-primary">Analyze Email</button>
+            <button type="submit" class="btn btn-primary">Scan Email</button>
           </form>
         </div>
       </div>
-
       <?php if ($result): ?>
-      <div class="card shadow-sm border-<?= $result['color'] ?>">
+      <div class="card border-<?= $result['color'] ?>">
         <div class="card-body">
-          <h5>Result: <span class="badge bg-<?= $result['color'] ?>"><?= $result['label'] ?></span></h5>
-          <p class="mb-2">Risk Score: <strong><?= $score ?>/100</strong></p>
-          <div class="progress mb-3" style="height:10px;">
-            <div class="progress-bar bg-<?= $result['color'] ?>" style="width: <?= $score ?>%;"></div>
-          </div>
+          <h5>Verdict: <span class="badge bg-<?= $result['color'] ?>"><?= $result['label'] ?></span></h5>
+          <p>Risk Score: <strong><?= $score ?>/100</strong></p>
           <?php if ($flags): ?>
-            <h6>Red Flags Detected:</h6>
-            <ul>
-              <?php foreach ($flags as $f): ?>
-                <li><?= htmlspecialchars($f) ?></li>
-              <?php endforeach; ?>
-            </ul>
-          <?php else: ?>
-            <p class="text-muted">No red flags detected — but always stay cautious with unexpected emails.</p>
+            <h6>Red Flags:</h6>
+            <ul><?php foreach ($flags as $f): ?><li><?= htmlspecialchars($f) ?></li><?php endforeach; ?></ul>
           <?php endif; ?>
         </div>
       </div>

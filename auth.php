@@ -1,9 +1,19 @@
 <?php
-// auth.php — include this at the very top of any page that requires admin login
-session_start();
+// auth.php — Authentication Guard Functions
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
+function requireUser() {
+    if (!isset($_SESSION['user_id'])) {
+        header('Location: login.php');
+        exit;
+    }
+}
 
-if (empty($_SESSION['admin_id'])) {
-    header('Location: login.php');
-    exit;
+function requireAdmin() {
+    if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
+        header('Location: admin_login.php');
+        exit;
+    }
 }

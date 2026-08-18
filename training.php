@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/auth.php';
+requireUser();
 // training.php - immediate teachable moment after a failed simulation
 $eid = filter_input(INPUT_GET, 'eid', FILTER_VALIDATE_INT);
 ?>
