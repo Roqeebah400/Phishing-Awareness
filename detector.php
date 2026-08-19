@@ -10,6 +10,7 @@ $score = 0;
 $flags = [];
 $email_text = '';
 $sender = '';
+$db_error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email_text = trim($_POST['email_text'] ?? '');
@@ -80,17 +81,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $result = ['label' => 'Low Risk — Safe Email', 'color' => 'success'];
         }
 
-        // Insert Scan Log
-        try {
-            $stmt = $pdo->prepare("INSERT INTO detector_checks (user_id, input_content, risk_score, flags_count, verdict) VALUES (:uid, :content, :score, :fc, :verdict)");
-            $stmt->execute([
-                ':uid'     => $_SESSION['user_id'],
-                ':content' => $email_text,
-                ':score'   => $score,
-                ':fc'      => count($flags),
-                ':verdict' => $result['label']
-            ]);
-        } catch (PDOException $e) {}
+        // Check user session key fallback
+        $user_id = $_SESSION['user_id'] ?? $_SESSION['id'] ?? null;
+
+        if ($user_id) {
+            try {
+                $stmt = $pdo->prepare("INSERT INTO detector_checks (user_id, input_content, risk_score, flags_count, verdict) VALUES (:uid, :content, :score, :fc, :verdict)");
+                $stmt->execute([
+                    ':uid'     => $user_id,
+                    ':content' => $email_text,
+                    ':score'   => $score,
+                    ':fc'      => count($flags),
+                    ':verdict' => $result['label']
+                ]);
+            } catch (PDOException $e) {
+                $db_error = "Database Error: " . $e->getMessage();
+            }
+        } else {
+            $db_error = "Session Error: User ID not found in session.";
+        }
     }
 }
 ?>
@@ -115,6 +124,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="container py-5">
   <div class="row justify-content-center">
     <div class="col-lg-8">
+      
+      <?php if ($db_error): ?>
+        <div class="alert alert-danger mb-4"><?= htmlspecialchars($db_error) ?></div>
+      <?php endif; ?>
+
       <div class="card shadow-sm mb-4">
         <div class="card-body">
           <h4>Scan Suspicious Email</h4>
@@ -131,6 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           </form>
         </div>
       </div>
+      
       <?php if ($result): ?>
       <div class="card border-<?= $result['color'] ?>">
         <div class="card-body">
@@ -139,10 +154,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <?php if ($flags): ?>
             <h6>Red Flags:</h6>
             <ul><?php foreach ($flags as $f): ?><li><?= htmlspecialchars($f) ?></li><?php endforeach; ?></ul>
+          <?php else: ?>
+            <p class="text-success mb-0">No obvious phishing indicators or suspicious links detected.</p>
           <?php endif; ?>
         </div>
       </div>
       <?php endif; ?>
+
     </div>
   </div>
 </div>
