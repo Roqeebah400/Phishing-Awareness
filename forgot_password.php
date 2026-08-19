@@ -1,5 +1,5 @@
 <?php
-// signup.php — User Registration
+// forgot_password.php — Reset User Password
 require_once __DIR__ . '/db.php';
 session_start();
 
@@ -7,35 +7,33 @@ $error = '';
 $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name             = trim($_POST['name'] ?? '');
     $email            = trim($_POST['email'] ?? '');
-    $password         = $_POST['password'] ?? '';
+    $new_password     = $_POST['new_password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
 
-    if ($name === '' || $email === '' || $password === '') {
+    if ($email === '' || $new_password === '' || $confirm_password === '') {
         $error = 'All fields are required.';
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $error = 'Please enter a valid email address.';
-    } elseif (strlen($password) < 6) {
+    } elseif (strlen($new_password) < 6) {
         $error = 'Password must be at least 6 characters.';
-    } elseif ($password !== $confirm_password) {
+    } elseif ($new_password !== $confirm_password) {
         $error = 'Passwords do not match.';
     } else {
         try {
             $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email LIMIT 1");
             $stmt->execute([':email' => $email]);
+            $user = $stmt->fetch();
 
-            if ($stmt->fetch()) {
-                $error = 'An account with this email already exists.';
+            if ($user) {
+                $hash = password_hash($new_password, PASSWORD_DEFAULT);
+                $update = $pdo->prepare("UPDATE users SET password_hash = :hash WHERE id = :id");
+                $update->execute([':hash' => $hash, ':id' => $user['id']]);
+
+                $success = 'Password updated successfully! You can now log in.';
             } else {
-                $hash = password_hash($password, PASSWORD_DEFAULT);
-                $stmt = $pdo->prepare("INSERT INTO users (name, email, password_hash, role) VALUES (:name, :email, :hash, 'user')");
-                $stmt->execute([':name' => $name, ':email' => $email, ':hash' => $hash]);
-
-                $success = 'Account created successfully! You can now log in.';
+                $error = 'No account found with that email address.';
             }
         } catch (PDOException $e) {
-            $error = 'Database error during registration.';
+            $error = 'Database error while resetting password.';
         }
     }
 }
@@ -44,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>PhishShield — User Signup</title>
+  <title>PhishShield — Reset Password</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
 </head>
@@ -54,29 +52,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="col-md-5">
       <div class="card shadow-sm">
         <div class="card-body p-4">
-          <h3 class="text-center mb-4 text-primary">🛡️ User Signup</h3>
+          <h3 class="text-center mb-4 text-primary">🔑 Reset Password</h3>
           <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
           <?php if ($success): ?><div class="alert alert-success"><?= htmlspecialchars($success) ?> <a href="login.php">Login</a></div><?php endif; ?>
           <form method="post">
             <div class="mb-3">
-              <label class="form-label">Full Name</label>
-              <input type="text" name="name" class="form-control" required value="<?= htmlspecialchars($_POST['name'] ?? '') ?>">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Email Address</label>
+              <label class="form-label">Your Email Address</label>
               <input type="email" name="email" class="form-control" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
             </div>
             <div class="mb-3">
-              <label class="form-label">Password</label>
+              <label class="form-label">New Password</label>
               <div class="input-group">
-                <input type="password" name="password" id="signupPassword" class="form-control" required>
-                <button class="btn btn-outline-secondary" type="button" id="toggleSignupPassword">
-                  <i class="bi bi-eye" id="signupIcon"></i>
+                <input type="password" name="new_password" id="newPassword" class="form-control" required>
+                <button class="btn btn-outline-secondary" type="button" id="toggleNewPassword">
+                  <i class="bi bi-eye" id="newIcon"></i>
                 </button>
               </div>
             </div>
             <div class="mb-3">
-              <label class="form-label">Confirm Password</label>
+              <label class="form-label">Confirm New Password</label>
               <div class="input-group">
                 <input type="password" name="confirm_password" id="confirmPassword" class="form-control" required>
                 <button class="btn btn-outline-secondary" type="button" id="toggleConfirmPassword">
@@ -84,9 +78,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </button>
               </div>
             </div>
-            <button type="submit" class="btn btn-primary w-100">Sign Up</button>
+            <button type="submit" class="btn btn-primary w-100">Update Password</button>
           </form>
-          <div class="text-center mt-3"><small>Already have an account? <a href="login.php">Login</a></small></div>
+          <div class="text-center mt-3"><small>Remembered it? <a href="login.php">Back to Login</a></small></div>
         </div>
       </div>
     </div>
@@ -110,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     });
   }
 
-  setupToggle('toggleSignupPassword', 'signupPassword', 'signupIcon');
+  setupToggle('toggleNewPassword', 'newPassword', 'newIcon');
   setupToggle('toggleConfirmPassword', 'confirmPassword', 'confirmIcon');
 </script>
 </body>
