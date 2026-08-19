@@ -60,6 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PhishShield — Admin Signup</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
 </head>
 <body class="bg-dark">
 
@@ -99,12 +100,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         <div class="mb-3">
                             <label class="form-label">Password</label>
-                            <input type="password" name="password" class="form-control" minlength="8" required>
+                            <div class="input-group">
+                                <input type="password" name="password" id="adminPassword" class="form-control" minlength="8" required>
+                                <button class="btn btn-outline-secondary" type="button" id="toggleAdminPassword">
+                                    <i class="bi bi-eye" id="adminPasswordIcon"></i>
+                                </button>
+                            </div>
                         </div>
 
                         <div class="mb-3">
                             <label class="form-label">Confirm Password</label>
-                            <input type="password" name="confirm_password" class="form-control" minlength="8" required>
+                            <div class="input-group">
+                                <input type="password" name="confirm_password" id="adminConfirmPassword" class="form-control" minlength="8" required>
+                                <button class="btn btn-outline-secondary" type="button" id="toggleAdminConfirmPassword">
+                                    <i class="bi bi-eye" id="adminConfirmIcon"></i>
+                                </button>
+                            </div>
                         </div>
 
                         <button type="submit" class="btn btn-danger w-100">Create Admin Account</button>
@@ -122,5 +133,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </div>
 
+<script>
+  function setupToggle(buttonId, inputId, iconId) {
+    document.getElementById(buttonId).addEventListener('click', function () {
+      const input = document.getElementById(inputId);
+      const icon = document.getElementById(iconId);
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('bi-eye');
+        icon.classList.add('bi-eye-slash');
+      } else {
+        input.type = 'password';
+        icon.classList.remove('bi-eye-slash');
+        icon.classList.add('bi-eye');
+      }
+    });
+  }
+
+  setupToggle('toggleAdminPassword', 'adminPassword', 'adminPasswordIcon');
+  setupToggle('toggleAdminConfirmPassword', 'adminConfirmPassword', 'adminConfirmIcon');
+</script>
 </body>
 </html>
