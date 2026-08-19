@@ -33,8 +33,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $error = 'Invalid email or password.';
             }
-        } catch (PDOException $e) {
-            $error = 'Authentication error.';
+       } catch (PDOException $e) {
+    $error = 'Authentication error: ' . $e->getMessage(); // TEMP — remove after debugging
         }
     }
 }
