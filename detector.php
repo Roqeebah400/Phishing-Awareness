@@ -71,6 +71,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $flags[] = "Generic greeting detected.";
         }
 
+        // 5. Sender Address Analysis
+        if ($sender !== '') {
+            $senderHost = null;
+
+            if (filter_var($sender, FILTER_VALIDATE_EMAIL)) {
+                $senderHost = strtolower(substr(strrchr($sender, "@"), 1));
+            } elseif (preg_match('/<([^>]+)>/', $sender, $m) && filter_var($m[1], FILTER_VALIDATE_EMAIL)) {
+                // handles "Display Name <email@domain>" format
+                $senderHost = strtolower(substr(strrchr($m[1], "@"), 1));
+            }
+
+            if ($senderHost) {
+                // a) Free/consumer webmail pretending to be an official department
+                $free_providers = ['gmail.com','yahoo.com','outlook.com','hotmail.com','aol.com','icloud.com','mail.com'];
+                if (in_array($senderHost, $free_providers, true)
+                    && preg_match('/\b(bank|support|billing|security|admin|hr|it[\s-]?department|payroll)\b/i', $email_text)) {
+                    $score += 15;
+                    $flags[] = "Sender uses a free email provider ($senderHost) but the message claims to be from an official department — legitimate organizations don't send official notices from Gmail/Yahoo/etc.";
+                }
+
+                // b) Sender domain is a raw IP address
+                if (filter_var($senderHost, FILTER_VALIDATE_IP)) {
+                    $score += 20;
+                    $flags[] = "Sender domain is a raw IP address ($senderHost) instead of a normal company domain.";
+                }
+
+                // c) Lookalike / typosquatted domains of common trusted brands
+                $trusted_domains = ['paypal.com','microsoft.com','google.com','apple.com','amazon.com','bankofamerica.com'];
+                foreach ($trusted_domains as $td) {
+                    if ($senderHost !== $td && levenshtein($senderHost, $td) <= 2) {
+                        $score += 25;
+                        $flags[] = "Sender domain ($senderHost) closely resembles a trusted domain ($td) — likely spoofing.";
+                        break;
+                    }
+                }
+
+                // d) Domain contains keywords commonly used to imitate legitimate login/security pages
+                if (preg_match('/-(secure|login|verify|update|account)\b/i', $senderHost)) {
+                    $score += 15;
+                    $flags[] = "Sender domain ($senderHost) contains keywords often used to imitate a legitimate site.";
+                }
+            } else {
+                // Sender field was filled in but isn't a parseable email address
+                $score += 5;
+                $flags[] = "Sender field ($sender) isn't a recognizable email address — treat with caution.";
+            }
+        }
+
         $score = min($score, 100);
 
         if ($score >= 60) {
