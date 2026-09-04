@@ -6,11 +6,58 @@ require_once __DIR__ . '/db.php';
 
 requireAdmin();
 
-$total_users   = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'user'")->fetchColumn();
-$total_scans   = $pdo->query("SELECT COUNT(*) FROM detector_checks")->fetchColumn();
-$total_threats = $pdo->query("SELECT COUNT(*) FROM detector_checks WHERE verdict LIKE '%High%'")->fetchColumn();
+$admin_id = $_SESSION['user_id'];
 
-$users = $pdo->query("SELECT id, name, email, department, created_at FROM users WHERE role = 'user' ORDER BY created_at DESC")->fetchAll();
+$error = '';
+$success = '';
+
+// Admin creating a new user account directly
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_user'])) {
+    $new_name     = trim($_POST['new_name'] ?? '');
+    $new_email    = trim($_POST['new_email'] ?? '');
+    $new_password = $_POST['new_password'] ?? '';
+
+    if ($new_name === '' || !filter_var($new_email, FILTER_VALIDATE_EMAIL)) {
+        $error = 'Please enter a valid name and email.';
+    } elseif (strlen($new_password) < 6) {
+        $error = 'Password must be at least 6 characters.';
+    } else {
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email LIMIT 1");
+        $stmt->execute([':email' => $new_email]);
+        if ($stmt->fetch()) {
+            $error = 'An account with this email already exists.';
+        } else {
+            $hash = password_hash($new_password, PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare(
+                "INSERT INTO users (name, email, password_hash, role, created_by_admin_id) VALUES (:n, :e, :h, 'user', :aid)"
+            );
+            $stmt->execute([':n' => $new_name, ':e' => $new_email, ':h' => $hash, ':aid' => $admin_id]);
+            $success = "Account created for {$new_name}. Share their email and password with them so they can log in.";
+        }
+    }
+}
+
+$total_users   = $pdo->prepare("SELECT COUNT(*) FROM users WHERE role = 'user' AND created_by_admin_id = :aid");
+$total_users->execute([':aid' => $admin_id]);
+$total_users = $total_users->fetchColumn();
+
+$total_scans = $pdo->prepare(
+    "SELECT COUNT(*) FROM detector_checks dc JOIN users u ON dc.user_id = u.id WHERE u.created_by_admin_id = :aid"
+);
+$total_scans->execute([':aid' => $admin_id]);
+$total_scans = $total_scans->fetchColumn();
+
+$total_threats = $pdo->prepare(
+    "SELECT COUNT(*) FROM detector_checks dc JOIN users u ON dc.user_id = u.id WHERE u.created_by_admin_id = :aid AND dc.verdict LIKE '%High%'"
+);
+$total_threats->execute([':aid' => $admin_id]);
+$total_threats = $total_threats->fetchColumn();
+
+$users_stmt = $pdo->prepare(
+    "SELECT id, name, email, department, created_at FROM users WHERE role = 'user' AND created_by_admin_id = :aid ORDER BY created_at DESC"
+);
+$users_stmt->execute([':aid' => $admin_id]);
+$users = $users_stmt->fetchAll();
 
 $all_campaigns = $pdo->query("SELECT id, campaign_name FROM campaigns ORDER BY campaign_name")->fetchAll();
 $selected_campaign = filter_input(INPUT_GET, 'campaign_id', FILTER_VALIDATE_INT);
@@ -36,7 +83,14 @@ if ($selected_campaign) {
 $click_rate      = $sent_count > 0 ? round(($clicked_count / $sent_count) * 100, 1) : 0;
 $compromise_rate = $sent_count > 0 ? round(($submitted_count / $sent_count) * 100, 1) : 0;
 
-$logs = $pdo->query("SELECT dc.*, u.name as user_name, u.email as user_email FROM detector_checks dc LEFT JOIN users u ON dc.user_id = u.id ORDER BY dc.created_at DESC")->fetchAll();
+$logs_stmt = $pdo->prepare(
+    "SELECT dc.*, u.name as user_name, u.email as user_email FROM detector_checks dc
+     JOIN users u ON dc.user_id = u.id
+     WHERE u.created_by_admin_id = :aid
+     ORDER BY dc.created_at DESC"
+);
+$logs_stmt->execute([':aid' => $admin_id]);
+$logs = $logs_stmt->fetchAll();
 ?>
 
 <!doctype html>
@@ -97,6 +151,9 @@ $logs = $pdo->query("SELECT dc.*, u.name as user_name, u.email as user_email FRO
 
 
 <div class="container py-5">
+
+  <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+  <?php if ($success): ?><div class="alert alert-success"><?= htmlspecialchars($success) ?></div><?php endif; ?>
 
   <div class="row mb-4">
 
@@ -202,6 +259,30 @@ $logs = $pdo->query("SELECT dc.*, u.name as user_name, u.email as user_email FRO
     Registered Users
   </h4>
 
+  <div class="card mb-3">
+    <div class="card-body">
+      <h6 class="mb-3">Create a New User Account</h6>
+      <form method="post" class="row g-2 align-items-end">
+        <input type="hidden" name="create_user" value="1">
+        <div class="col-md-3">
+          <label class="form-label">Full Name</label>
+          <input type="text" name="new_name" class="form-control" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Email</label>
+          <input type="email" name="new_email" class="form-control" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Password</label>
+          <input type="text" name="new_password" class="form-control" placeholder="min 6 characters" required>
+        </div>
+        <div class="col-md-3">
+          <button type="submit" class="btn btn-primary w-100">Create Account</button>
+        </div>
+      </form>
+      <small class="text-muted d-block mt-2">Share the email and password with the person so they can log in at /login.php. Accounts you create here only appear on your dashboard — not visible to other admins.</small>
+    </div>
+  </div>
 
   <div class="card mb-5">
 

@@ -32,15 +32,15 @@ try {
     $stmt->execute([$user_id]);
 
 
-    // Delete the user
-    // Only accounts with role = user can be deleted
+    // Only accounts with role = user, created by THIS admin, can be deleted
     $stmt = $pdo->prepare("
         DELETE FROM users
         WHERE id = ?
         AND role = 'user'
+        AND created_by_admin_id = ?
     ");
 
-    $stmt->execute([$user_id]);
+    $stmt->execute([$user_id, $_SESSION['user_id']]);
 
 
     header('Location: manage.php');
