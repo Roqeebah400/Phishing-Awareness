@@ -27,8 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($urgency_words as $w) {
             if (stripos($email_text, $w) !== false) $found_urgency[] = $w;
         }
-        if ($found_urgency) {
-            $score += 20;
+        if (count($found_urgency) >= 2) {
+            $score += 10;
             $flags[] = "Urgency words detected: " . implode(', ', $found_urgency);
         }
 
@@ -38,15 +38,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($sensitive_words as $w) {
             if (stripos($email_text, $w) !== false) $found_sensitive[] = $w;
         }
-        if ($found_sensitive) {
-            $score += 25;
+        if (count($found_sensitive) >= 2) {
+            $score += 12;
             $flags[] = "Sensitive data requested: " . implode(', ', $found_sensitive);
         }
 
-                // Combination bonus: urgency + sensitive-data request together is the classic phishing pattern
+                // Combination bonus: urgency + sensitive-data request together is the classic phishing pattern.
+        // This stays the dominant signal — one word alone (e.g. a friend saying "urgent" or asking
+        // for a wifi password) shouldn't tank the score, but urgency + credential requests together
+        // almost never happens innocently.
         if ($found_urgency && $found_sensitive) {
-            $score += 15;
-            $flags[] = "Combination risk: urgency language paired with a sensitive-data request is a classic phishing pattern (+15 bonus).";
+            $score += 30;
+            $flags[] = "Combination risk: urgency language paired with a sensitive-data request is a classic phishing pattern (+30 bonus).";
         }
 
         // 3. Link Analysis (shorteners / raw IPs + VirusTotal reputation)
@@ -154,7 +157,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $rule_score = $score; // keep the pure rule-based score before blending
         $ai = checkWithGroqLLM($email_text, $sender);
         if ($ai['checked']) {
-            $score = max($rule_score, (int) round(($rule_score * 0.6) + ($ai['ai_score'] * 0.4)));
+            // AI now carries more weight than the raw keyword score, since it can read
+            // tone/intent (e.g. a friend saying "send this urgently" vs. an actual phishing
+            // attempt) instead of just matching words. We no longer force the blended score
+            // to be at least the rule score, so a low-risk AI read can pull a keyword-triggered
+            // score back down.
+            $score = (int) round(($rule_score * 0.35) + ($ai['ai_score'] * 0.65));
             $ai_assessment = ['score' => $ai['ai_score'], 'reasoning' => $ai['reasoning']];
         } elseif ($ai['error'] && isset($api_notes)) {
             $api_notes[] = "Groq AI check skipped: {$ai['error']}";
