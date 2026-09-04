@@ -214,6 +214,9 @@ $resultClasses = $result ? $colorMap[$result['color']] : null;
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PhishShield — Email Detector</title>
   <link href="assets/phishshield.css" rel="stylesheet">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="favicon-180.png">
   <style>
     .ps-score-ring{
       width:96px; height:96px;
