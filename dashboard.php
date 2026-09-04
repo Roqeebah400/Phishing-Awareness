@@ -150,15 +150,16 @@ $scans = $stmt->fetchAll();
 
             <?php endforeach; ?>
 
-          <?php else: ?>
+                    <?php else: ?>
 
             <tr>
 
               <td
                 colspan="6"
-                class="text-center py-4"
+                class="text-center py-5"
               >
-                No scans recorded yet.
+                <p class="mb-3 text-muted">You haven't scanned any emails yet. Nothing to show here until you run your first check.</p>
+                <a href="detector.php" class="btn btn-primary btn-sm">Scan Your First Email →</a>
               </td>
 
             </tr>

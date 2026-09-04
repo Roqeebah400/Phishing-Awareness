@@ -11,8 +11,8 @@ $companyName = 'Atlas Workspace';
 function logTrackingEvent(PDO $pdo, string $action, ?int $cid, ?int $eid, array $meta = []): void {
     try {
         $stmt = $pdo->prepare(
-            "INSERT INTO tracking_logs (campaign_id, employee_id, action, ip, user_agent, meta)
-             VALUES (:cid, :eid, :action, :ip, :ua, :meta)"
+            "INSERT INTO tracking_logs (campaign_id, employee_id, action_type, ip_address, user_agent)
+             VALUES (:cid, :eid, :action, :ip, :ua)"
         );
         $stmt->execute([
             ':cid'    => $cid ?: null,
@@ -20,7 +20,6 @@ function logTrackingEvent(PDO $pdo, string $action, ?int $cid, ?int $eid, array 
             ':action' => $action,
             ':ip'     => $_SERVER['REMOTE_ADDR'] ?? null,
             ':ua'     => $_SERVER['HTTP_USER_AGENT'] ?? null,
-            ':meta'   => json_encode($meta),
         ]);
     } catch (\Exception $e) {
         // Never let a logging failure break the page for the visitor
@@ -28,30 +27,45 @@ function logTrackingEvent(PDO $pdo, string $action, ?int $cid, ?int $eid, array 
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Simulated credential submission from the phishing landing page.
-    // IMPORTANT: we NEVER store the actual password — only that a submission happened.
-    $cid = filter_input(INPUT_POST, 'cid', FILTER_VALIDATE_INT) ?: null;
-    $eid = filter_input(INPUT_POST, 'eid', FILTER_VALIDATE_INT) ?: null;
+    $token = trim($_POST['t'] ?? '');
+    $cid = null; $eid = null;
+
+    if ($token) {
+        $stmt = $pdo->prepare("SELECT campaign_id, employee_id FROM tracking_logs WHERE token = :t LIMIT 1");
+        $stmt->execute([':t' => $token]);
+        $row = $stmt->fetch();
+        if ($row) { $cid = $row['campaign_id']; $eid = $row['employee_id']; }
+    }
+
     $submittedUsername = trim($_POST['username'] ?? '');
 
-    logTrackingEvent($pdo, 'submitted_data', $cid, $eid, [
+        logTrackingEvent($pdo, 'submitted_data', $cid, $eid, [
         'username_length' => strlen($submittedUsername),
         'had_password'    => isset($_POST['password']) && $_POST['password'] !== '',
     ]);
 
-    header('Location: training.php' . ($eid ? '?eid=' . $eid : ''));
+    $params = [];
+    if ($eid) $params[] = 'eid=' . $eid;
+    if ($cid) $params[] = 'cid=' . $cid;
+    $qs = $params ? '?' . implode('&', $params) : '';
+
+    header('Location: training.php' . $qs);
     exit;
 }
 
-$cid = filter_input(INPUT_GET, 'cid', FILTER_VALIDATE_INT) ?: null;
-$eid = filter_input(INPUT_GET, 'eid', FILTER_VALIDATE_INT) ?: null;
+$token = trim($_GET['t'] ?? '');
 
-if ($cid || $eid) {
-    // Real tracking link → log the click and show the simulated sign-in page
-    logTrackingEvent($pdo, 'clicked', $cid, $eid);
-    renderPhishingLanding($companyName, $cid, $eid);
-    exit;
+if ($token) {
+    $stmt = $pdo->prepare("SELECT campaign_id, employee_id FROM tracking_logs WHERE token = :t LIMIT 1");
+    $stmt->execute([':t' => $token]);
+    $row = $stmt->fetch();
+    if ($row) {
+        logTrackingEvent($pdo, 'clicked', $row['campaign_id'], $row['employee_id']);
+        renderPhishingLanding($companyName, $token);
+        exit;
+    }
 }
+
 
 // Otherwise → this is just a normal visitor. Show the real homepage.
 renderHomepage();
@@ -658,8 +672,8 @@ function renderHomepage(): void {
 <?php
 }
 
-// ---------------------------------------------------------------------
-function renderPhishingLanding(string $companyName, ?int $cid, ?int $eid): void {
+// ---------------------------------------------------------------
+function renderPhishingLanding(string $companyName, string $token): void {
 ?>
 <!doctype html>
 <html lang="en">
@@ -885,8 +899,7 @@ function renderPhishingLanding(string $companyName, ?int $cid, ?int $eid): void 
       <p class="sub">Enter your details to continue to your workspace.</p>
 
       <form method="post">
-        <input type="hidden" name="cid" value="<?= htmlspecialchars((string)($cid ?? '')) ?>">
-        <input type="hidden" name="eid" value="<?= htmlspecialchars((string)($eid ?? '')) ?>">
+              <input type="hidden" name="t" value="<?= htmlspecialchars($token) ?>">
 
         <div class="field">
           <label for="username">Email or username</label>

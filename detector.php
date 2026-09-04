@@ -2,15 +2,18 @@
 // detector.php — Phishing Detection Engine
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/detector_helpers.php';
 
 requireUser();
 
 $result = null;
 $score = 0;
 $flags = [];
+$api_notes = []; // soft notices when an external check couldn't run — never scored
 $email_text = '';
 $sender = '';
 $db_error = null;
+$ai_assessment = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email_text = trim($_POST['email_text'] ?? '');
@@ -40,9 +43,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $flags[] = "Sensitive data requested: " . implode(', ', $found_sensitive);
         }
 
-        // 3. Link Analysis
+                // Combination bonus: urgency + sensitive-data request together is the classic phishing pattern
+        if ($found_urgency && $found_sensitive) {
+            $score += 15;
+            $flags[] = "Combination risk: urgency language paired with a sensitive-data request is a classic phishing pattern (+15 bonus).";
+        }
+
+        // 3. Link Analysis (shorteners / raw IPs + VirusTotal reputation)
         preg_match_all('/https?:\/\/[^\s"\'<>]+/i', $email_text, $matches);
-        $urls = $matches[0];
+        $urls = array_slice(array_unique($matches[0]), 0, 5); // cap external calls per scan
         $suspicious_urls = [];
         foreach ($urls as $url) {
             $host = parse_url($url, PHP_URL_HOST);
@@ -50,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if (filter_var($host, FILTER_VALIDATE_IP)) {
                 $suspicious_urls[] = "$url (uses IP address)";
-                continue;
+                
             }
             $shorteners = ['bit.ly', 'tinyurl.com', 't.co', 'goo.gl'];
             foreach ($shorteners as $s) {
@@ -58,6 +67,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $suspicious_urls[] = "$url (shortened link)";
                     break;
                 }
+            }
+
+            // VirusTotal reputation check
+            $vt = checkUrlReputation($url);
+            if ($vt['checked']) {
+                if ($vt['malicious'] > 0) {
+                    $score += 35;
+                    $flags[] = "VirusTotal: flagged malicious by {$vt['malicious']} security vendor(s) — $url";
+                } elseif ($vt['suspicious'] > 0) {
+                    $score += 15;
+                    $flags[] = "VirusTotal: flagged suspicious by {$vt['suspicious']} vendor(s) — $url";
+                }
+            } elseif ($vt['error']) {
+                $api_notes[] = "VirusTotal check skipped for $url: {$vt['error']}";
             }
         }
         if ($suspicious_urls) {
@@ -71,19 +94,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $flags[] = "Generic greeting detected.";
         }
 
-        // 5. Sender Address Analysis
+                // 5. Sender Address Analysis
         if ($sender !== '') {
             $senderHost = null;
 
             if (filter_var($sender, FILTER_VALIDATE_EMAIL)) {
                 $senderHost = strtolower(substr(strrchr($sender, "@"), 1));
             } elseif (preg_match('/<([^>]+)>/', $sender, $m) && filter_var($m[1], FILTER_VALIDATE_EMAIL)) {
-                // handles "Display Name <email@domain>" format
                 $senderHost = strtolower(substr(strrchr($m[1], "@"), 1));
             }
 
             if ($senderHost) {
-                // a) Free/consumer webmail pretending to be an official department
+                // WHOIS domain age check
+                $whois = checkDomainAge($senderHost);
+                if ($whois['checked']) {
+                    if ($whois['age_days'] < 7) {
+                        $score += 30;
+                        $flags[] = "Domain '{$senderHost}' was registered only {$whois['age_days']} day(s) ago — very likely attack infrastructure.";
+                    } elseif ($whois['age_days'] < 30) {
+                        $score += 20;
+                        $flags[] = "Domain '{$senderHost}' was registered {$whois['age_days']} day(s) ago — recently created domains are high-risk.";
+                    }
+                } elseif ($whois['error']) {
+                    $api_notes[] = "WHOIS check skipped for {$senderHost}: {$whois['error']}";
+                }
+
                 $free_providers = ['gmail.com','yahoo.com','outlook.com','hotmail.com','aol.com','icloud.com','mail.com'];
                 if (in_array($senderHost, $free_providers, true)
                     && preg_match('/\b(bank|support|billing|security|admin|hr|it[\s-]?department|payroll)\b/i', $email_text)) {
@@ -91,13 +126,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $flags[] = "Sender uses a free email provider ($senderHost) but the message claims to be from an official department — legitimate organizations don't send official notices from Gmail/Yahoo/etc.";
                 }
 
-                // b) Sender domain is a raw IP address
                 if (filter_var($senderHost, FILTER_VALIDATE_IP)) {
                     $score += 20;
                     $flags[] = "Sender domain is a raw IP address ($senderHost) instead of a normal company domain.";
                 }
 
-                // c) Lookalike / typosquatted domains of common trusted brands
                 $trusted_domains = ['paypal.com','microsoft.com','google.com','apple.com','amazon.com','bankofamerica.com'];
                 foreach ($trusted_domains as $td) {
                     if ($senderHost !== $td && levenshtein($senderHost, $td) <= 2) {
@@ -107,16 +140,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
-                // d) Domain contains keywords commonly used to imitate legitimate login/security pages
                 if (preg_match('/-(secure|login|verify|update|account)\b/i', $senderHost)) {
                     $score += 15;
                     $flags[] = "Sender domain ($senderHost) contains keywords often used to imitate a legitimate site.";
                 }
             } else {
-                // Sender field was filled in but isn't a parseable email address
                 $score += 5;
                 $flags[] = "Sender field ($sender) isn't a recognizable email address — treat with caution.";
             }
+        }
+
+             // 6. AI Content Analysis (Groq LLM) — blends with the rule-based score
+        $rule_score = $score; // keep the pure rule-based score before blending
+        $ai = checkWithGroqLLM($email_text, $sender);
+        if ($ai['checked']) {
+            $score = max($rule_score, (int) round(($rule_score * 0.6) + ($ai['ai_score'] * 0.4)));
+            $ai_assessment = ['score' => $ai['ai_score'], 'reasoning' => $ai['reasoning']];
+        } elseif ($ai['error'] && isset($api_notes)) {
+            $api_notes[] = "Groq AI check skipped: {$ai['error']}";
         }
 
         $score = min($score, 100);
@@ -128,7 +169,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $result = ['label' => 'Low Risk — Safe Email', 'color' => 'success'];
         }
-
         // Check user session key fallback
         $user_id = $_SESSION['user_id'] ?? $_SESSION['id'] ?? null;
 
@@ -172,7 +212,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="container py-5">
   <div class="row justify-content-center">
     <div class="col-lg-8">
-      
+
       <?php if ($db_error): ?>
         <div class="alert alert-danger mb-4"><?= htmlspecialchars($db_error) ?></div>
       <?php endif; ?>
@@ -193,18 +233,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           </form>
         </div>
       </div>
-      
-      <?php if ($result): ?>
-      <div class="card border-<?= $result['color'] ?>">
+
+           <?php if ($result): ?>
+      <div class="card border-<?= $result['color'] ?> mb-3">
         <div class="card-body">
           <h5>Verdict: <span class="badge bg-<?= $result['color'] ?>"><?= $result['label'] ?></span></h5>
           <p>Risk Score: <strong><?= $score ?>/100</strong></p>
           <?php if ($flags): ?>
-            <h6>Red Flags:</h6>
+            <h6>Red Flags (Rule-Based Detection):</h6>
             <ul><?php foreach ($flags as $f): ?><li><?= htmlspecialchars($f) ?></li><?php endforeach; ?></ul>
           <?php else: ?>
             <p class="text-success mb-0">No obvious phishing indicators or suspicious links detected.</p>
           <?php endif; ?>
+        </div>
+      </div>
+      <?php endif; ?>
+
+      <?php if ($ai_assessment): ?>
+      <div class="card border-info mb-3">
+        <div class="card-body">
+          <h6 class="text-info mb-2">🤖 AI Assessment (Groq — second opinion)</h6>
+          <p class="mb-1">AI risk score: <strong><?= $ai_assessment['score'] ?>/100</strong></p>
+          <p class="text-muted small mb-0"><?= htmlspecialchars($ai_assessment['reasoning']) ?></p>
+        </div>
+      </div>
+      <?php endif; ?>
+
+      <?php if ($api_notes): ?>
+      <div class="card border-secondary">
+        <div class="card-body">
+          <h6 class="text-muted mb-2">External checks not applied to this scan:</h6>
+          <ul class="text-muted small mb-0">
+            <?php foreach ($api_notes as $n): ?><li><?= htmlspecialchars($n) ?></li><?php endforeach; ?>
+          </ul>
         </div>
       </div>
       <?php endif; ?>

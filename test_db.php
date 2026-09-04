@@ -8,7 +8,7 @@ try {
     $tables = ['employees','campaigns','tracking_logs'];
     $missing = [];
     foreach ($tables as $t) {
-        $stmt = $pdo->prepare("SHOW TABLES LIKE :t");
+        $stmt = $pdo->prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = :t");
         $stmt->execute([':t'=>$t]);
         if (!$stmt->fetch()) $missing[] = $t;
     }

@@ -4,8 +4,8 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/auth.php';
 
 try {
-    $stmt = $pdo->query("SELECT t.id, t.action, t.meta, t.ip, t.user_agent, t.created_at, e.email AS employee_email, e.department, c.name AS campaign_name FROM tracking_logs t LEFT JOIN employees e ON e.id = t.employee_id LEFT JOIN campaigns c ON c.id = t.campaign_id ORDER BY t.created_at DESC LIMIT 100");
-    $rows = $stmt->fetchAll();
+  $stmt = $pdo->query("SELECT t.id, t.action_type, t.ip_address, t.user_agent, t.timestamp, e.email AS employee_email, e.department, c.campaign_name FROM tracking_logs t LEFT JOIN employees e ON e.id = t.employee_id LEFT JOIN campaigns c ON c.id = t.campaign_id ORDER BY t.timestamp DESC LIMIT 100");
+   $rows = $stmt->fetchAll();
 } catch (\Exception $e) {
     $rows = [];
 }
@@ -39,14 +39,14 @@ try {
         <?php foreach($rows as $r): ?>
         <tr>
           <td><?= htmlspecialchars($r['id']) ?></td>
-          <td><?= htmlspecialchars($r['created_at']) ?></td>
-          <td><?= htmlspecialchars($r['action']) ?></td>
+          <td><?= htmlspecialchars($r['timestamp']) ?></td>
+          <td><?= htmlspecialchars($r['action_type']) ?></td>
           <td><?= htmlspecialchars($r['employee_email'] ?? 'Unknown') ?></td>
           <td><?= htmlspecialchars($r['department'] ?? '') ?></td>
           <td><?= htmlspecialchars($r['campaign_name'] ?? '') ?></td>
-          <td><?= htmlspecialchars($r['ip'] ?? '') ?></td>
-          <td><pre class="mb-0" style="max-width:320px;white-space:pre-wrap;"><?= htmlspecialchars($r['meta'] ?? '') ?></pre></td>
-        </tr>
+          <td><?= htmlspecialchars($r['ip_address'] ?? '') ?></td>
+          <td><?= htmlspecialchars($r['user_agent'] ?? '') ?></td>
+       </tr>
         <?php endforeach; ?>
       </tbody>
     </table>

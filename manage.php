@@ -12,7 +12,31 @@ $total_threats = $pdo->query("SELECT COUNT(*) FROM detector_checks WHERE verdict
 
 $users = $pdo->query("SELECT id, name, email, department, created_at FROM users WHERE role = 'user' ORDER BY created_at DESC")->fetchAll();
 
-$logs  = $pdo->query("SELECT dc.*, u.name as user_name, u.email as user_email FROM detector_checks dc LEFT JOIN users u ON dc.user_id = u.id ORDER BY dc.created_at DESC")->fetchAll();
+$all_campaigns = $pdo->query("SELECT id, campaign_name FROM campaigns ORDER BY campaign_name")->fetchAll();
+$selected_campaign = filter_input(INPUT_GET, 'campaign_id', FILTER_VALIDATE_INT);
+
+if ($selected_campaign) {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM tracking_logs WHERE action_type = 'sent' AND campaign_id = :cid");
+    $stmt->execute([':cid' => $selected_campaign]);
+    $sent_count = $stmt->fetchColumn();
+
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM tracking_logs WHERE action_type = 'clicked' AND campaign_id = :cid");
+    $stmt->execute([':cid' => $selected_campaign]);
+    $clicked_count = $stmt->fetchColumn();
+
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM tracking_logs WHERE action_type = 'submitted_data' AND campaign_id = :cid");
+    $stmt->execute([':cid' => $selected_campaign]);
+    $submitted_count = $stmt->fetchColumn();
+} else {
+    $sent_count      = $pdo->query("SELECT COUNT(*) FROM tracking_logs WHERE action_type = 'sent'")->fetchColumn();
+    $clicked_count   = $pdo->query("SELECT COUNT(*) FROM tracking_logs WHERE action_type = 'clicked'")->fetchColumn();
+    $submitted_count = $pdo->query("SELECT COUNT(*) FROM tracking_logs WHERE action_type = 'submitted_data'")->fetchColumn();
+}
+
+$click_rate      = $sent_count > 0 ? round(($clicked_count / $sent_count) * 100, 1) : 0;
+$compromise_rate = $sent_count > 0 ? round(($submitted_count / $sent_count) * 100, 1) : 0;
+
+$logs = $pdo->query("SELECT dc.*, u.name as user_name, u.email as user_email FROM detector_checks dc LEFT JOIN users u ON dc.user_id = u.id ORDER BY dc.created_at DESC")->fetchAll();
 ?>
 
 <!doctype html>
@@ -44,6 +68,18 @@ $logs  = $pdo->query("SELECT dc.*, u.name as user_name, u.email as user_email FR
 
   <div>
 
+       <a href="manage_employees.php" class="btn btn-outline-light btn-sm me-2">
+      Employees & Campaigns
+    </a>
+
+    <a href="send_email.php" class="btn btn-outline-light btn-sm me-2">
+      Send Campaign
+    </a>
+
+    <a href="settings.php" class="btn btn-outline-light btn-sm me-2">
+      Email Settings
+    </a>
+
     <span class="text-white me-3">
       Admin:
       <strong>
@@ -61,9 +97,6 @@ $logs  = $pdo->query("SELECT dc.*, u.name as user_name, u.email as user_email FR
 
 
 <div class="container py-5">
-
-
-  <!-- DASHBOARD CARDS -->
 
   <div class="row mb-4">
 
@@ -85,7 +118,6 @@ $logs  = $pdo->query("SELECT dc.*, u.name as user_name, u.email as user_email FR
 
     </div>
 
-
     <div class="col-md-4">
 
       <div class="card bg-info text-white">
@@ -103,7 +135,6 @@ $logs  = $pdo->query("SELECT dc.*, u.name as user_name, u.email as user_email FR
       </div>
 
     </div>
-
 
     <div class="col-md-4">
 
@@ -125,6 +156,44 @@ $logs  = $pdo->query("SELECT dc.*, u.name as user_name, u.email as user_email FR
 
   </div>
 
+    <form method="get" class="mb-3">
+    <label class="form-label">Filter by Campaign</label>
+    <select name="campaign_id" class="form-select w-auto d-inline-block" onchange="this.form.submit()">
+      <option value="">All Campaigns (Combined)</option>
+      <?php foreach ($all_campaigns as $ac): ?>
+        <option value="<?= $ac['id'] ?>" <?= $selected_campaign == $ac['id'] ? 'selected' : '' ?>>
+          <?= htmlspecialchars($ac['campaign_name']) ?>
+        </option>
+      <?php endforeach; ?>
+    </select>
+  </form>
+
+  <div class="row mb-4">
+    <div class="col-md-4">
+      <div class="card bg-secondary text-white">
+        <div class="card-body">
+          <h5>Emails Sent</h5>
+          <h2><?= $sent_count ?></h2>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card bg-warning text-dark">
+        <div class="card-body">
+          <h5>Click Rate</h5>
+          <h2><?= $click_rate ?>%</h2>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card bg-dark text-white">
+        <div class="card-body">
+          <h5>Credential Compromise Rate</h5>
+          <h2><?= $compromise_rate ?>%</h2>
+        </div>
+      </div>
+    </div>
+  </div>
 
 
   <!-- REGISTERED USERS -->
