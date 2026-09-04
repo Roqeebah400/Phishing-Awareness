@@ -16,40 +16,62 @@ try {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>PhishShield — Recent Events</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="assets/phishshield.css" rel="stylesheet">
 </head>
-<body class="bg-light">
-  <div class="container py-4">
-    <h3>Recent Tracking Events</h3>
-    <p class="text-muted">Shows last 100 events. No secrets are displayed.</p>
-    <table class="table table-sm table-striped">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Time</th>
-          <th>Action</th>
-          <th>Employee</th>
-          <th>Dept</th>
-          <th>Campaign</th>
-          <th>IP</th>
-          <th>Meta</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php foreach($rows as $r): ?>
-        <tr>
-          <td><?= htmlspecialchars($r['id']) ?></td>
-          <td><?= htmlspecialchars($r['timestamp']) ?></td>
-          <td><?= htmlspecialchars($r['action_type']) ?></td>
-          <td><?= htmlspecialchars($r['employee_email'] ?? 'Unknown') ?></td>
-          <td><?= htmlspecialchars($r['department'] ?? '') ?></td>
-          <td><?= htmlspecialchars($r['campaign_name'] ?? '') ?></td>
-          <td><?= htmlspecialchars($r['ip_address'] ?? '') ?></td>
-          <td><?= htmlspecialchars($r['user_agent'] ?? '') ?></td>
-       </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
+<body class="ps-body">
+
+<nav class="ps-nav is-admin">
+  <div class="ps-nav-inner">
+    <div class="ps-brand"><span class="ps-brand-glyph"></span>PhishShield <span class="ps-mode-tag">Admin</span></div>
+    <div class="ps-nav-actions">
+      <a href="manage.php" class="ps-btn ps-btn-ghost ps-btn-sm">← Back to admin</a>
+    </div>
   </div>
+</nav>
+
+<div class="ps-shell ps-page">
+  <h1 style="font-size:24px;">Recent tracking events</h1>
+  <p style="margin-bottom:20px;">Shows the last 100 events. No secrets are ever displayed.</p>
+
+  <div class="ps-card ps-card-flush">
+    <div class="ps-table-wrap">
+      <table class="ps-table">
+        <thead>
+          <tr>
+            <th>ID</th><th>Time</th><th>Action</th><th>Employee</th><th>Dept</th><th>Campaign</th><th>IP</th><th>Meta</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php if ($rows): ?>
+            <?php foreach($rows as $r): ?>
+            <tr>
+              <td><?= htmlspecialchars($r['id']) ?></td>
+              <td><?= htmlspecialchars($r['timestamp']) ?></td>
+              <td>
+                <?php
+                  $actionBadge = match($r['action_type']) {
+                    'sent' => 'ps-badge-muted',
+                    'clicked' => 'ps-badge-warn',
+                    'submitted_data' => 'ps-badge-danger',
+                    default => 'ps-badge-muted',
+                  };
+                ?>
+                <span class="ps-badge <?= $actionBadge ?>"><?= htmlspecialchars($r['action_type']) ?></span>
+              </td>
+              <td><?= htmlspecialchars($r['employee_email'] ?? 'Unknown') ?></td>
+              <td><?= htmlspecialchars($r['department'] ?? '') ?></td>
+              <td><?= htmlspecialchars($r['campaign_name'] ?? '') ?></td>
+              <td class="ps-small"><?= htmlspecialchars($r['ip_address'] ?? '') ?></td>
+              <td class="ps-small"><?= htmlspecialchars($r['user_agent'] ?? '') ?></td>
+           </tr>
+            <?php endforeach; ?>
+          <?php else: ?>
+            <tr><td colspan="8"><div class="ps-empty">No tracking events yet.</div></td></tr>
+          <?php endif; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 </body>
 </html>

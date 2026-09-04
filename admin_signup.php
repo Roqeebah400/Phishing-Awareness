@@ -59,78 +59,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PhishShield — Admin Signup</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="assets/phishshield.css" rel="stylesheet">
 </head>
-<body class="bg-dark">
+<body class="ps-body">
 
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-md-5">
-            <div class="card shadow-sm mt-4 border-danger">
-                <div class="card-body p-4">
-
-                    <h3 class="text-center mb-4 text-danger">
-                        ⚙️ Admin Registration
-                    </h3>
-
-                    <?php if ($error): ?>
-                        <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
-                    <?php endif; ?>
-
-                    <?php if ($success): ?>
-                        <div class="alert alert-success">
-                            <?= htmlspecialchars($success) ?>
-                            <div class="mt-2">
-                                <a href="admin_login.php" class="btn btn-sm btn-danger">Go to Admin Login</a>
-                            </div>
-                        </div>
-                    <?php endif; ?>
-
-                    <form method="post">
-                        <div class="mb-3">
-                            <label class="form-label">Full Name</label>
-                            <input type="text" name="name" class="form-control" required value="<?= htmlspecialchars($_POST['name'] ?? '') ?>">
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Admin Email Address</label>
-                            <input type="email" name="email" class="form-control" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Password</label>
-                            <div class="input-group">
-                                <input type="password" name="password" id="adminPassword" class="form-control" minlength="8" required>
-                                <button class="btn btn-outline-secondary" type="button" id="toggleAdminPassword">
-                                    <i class="bi bi-eye" id="adminPasswordIcon"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Confirm Password</label>
-                            <div class="input-group">
-                                <input type="password" name="confirm_password" id="adminConfirmPassword" class="form-control" minlength="8" required>
-                                <button class="btn btn-outline-secondary" type="button" id="toggleAdminConfirmPassword">
-                                    <i class="bi bi-eye" id="adminConfirmIcon"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <button type="submit" class="btn btn-danger w-100">Create Admin Account</button>
-                    </form>
-
-                    <div class="text-center mt-3">
-                        <small class="text-muted">
-                            Already an Admin? <a href="admin_login.php" class="text-decoration-none">Login Here</a>
-                        </small>
-                    </div>
-
-                </div>
-            </div>
-        </div>
+<div class="ps-auth">
+  <div class="ps-auth-brand is-admin">
+    <div class="ps-brand" style="color:#EDEFF5;font-size:18px;">
+      <span class="ps-brand-glyph"></span>PhishShield <span class="ps-mode-tag">Admin</span>
     </div>
+    <div class="ps-auth-copy">
+      <h1>Set up the account that runs the programme.</h1>
+      <p>Admin accounts can manage employees, dispatch simulation campaigns, and review organisation-wide results.</p>
+    </div>
+    <div class="ps-auth-foot">&copy; <?= date('Y') ?> PhishShield</div>
+  </div>
+
+  <div class="ps-auth-stage">
+    <div class="ps-auth-form">
+      <h2>Create an admin account</h2>
+      <p class="ps-sub">Requires a stronger password than a standard user account.</p>
+
+      <?php if ($error): ?><div class="ps-alert ps-alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+      <?php if ($success): ?>
+        <div class="ps-alert ps-alert-success">
+          <?= htmlspecialchars($success) ?>
+          <div style="margin-top:8px;"><a href="admin_login.php" class="ps-btn ps-btn-admin ps-btn-sm">Go to admin login</a></div>
+        </div>
+      <?php endif; ?>
+
+      <form method="post">
+        <div class="ps-field">
+          <label class="ps-label" for="name">Full name</label>
+          <input type="text" id="name" name="name" class="ps-input" required value="<?= htmlspecialchars($_POST['name'] ?? '') ?>">
+        </div>
+        <div class="ps-field">
+          <label class="ps-label" for="email">Admin email address</label>
+          <input type="email" id="email" name="email" class="ps-input" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
+        </div>
+        <div class="ps-field">
+          <label class="ps-label" for="adminPassword">Password</label>
+          <div class="ps-input-group">
+            <input type="password" name="password" id="adminPassword" class="ps-input" minlength="8" required>
+            <span class="ps-input-suffix" id="toggleAdminPassword"><i class="bi bi-eye" id="adminPasswordIcon"></i></span>
+          </div>
+          <p class="ps-hint">At least 8 characters.</p>
+        </div>
+        <div class="ps-field">
+          <label class="ps-label" for="adminConfirmPassword">Confirm password</label>
+          <div class="ps-input-group">
+            <input type="password" name="confirm_password" id="adminConfirmPassword" class="ps-input" minlength="8" required>
+            <span class="ps-input-suffix" id="toggleAdminConfirmPassword"><i class="bi bi-eye" id="adminConfirmIcon"></i></span>
+          </div>
+        </div>
+        <button type="submit" class="ps-btn ps-btn-admin ps-btn-block">Create admin account</button>
+      </form>
+
+      <p class="ps-footer-note">Already an admin? <a href="admin_login.php">Log in here</a></p>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -138,18 +126,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     document.getElementById(buttonId).addEventListener('click', function () {
       const input = document.getElementById(inputId);
       const icon = document.getElementById(iconId);
-      if (input.type === 'password') {
-        input.type = 'text';
-        icon.classList.remove('bi-eye');
-        icon.classList.add('bi-eye-slash');
-      } else {
-        input.type = 'password';
-        icon.classList.remove('bi-eye-slash');
-        icon.classList.add('bi-eye');
-      }
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      icon.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
     });
   }
-
   setupToggle('toggleAdminPassword', 'adminPassword', 'adminPasswordIcon');
   setupToggle('toggleAdminConfirmPassword', 'adminConfirmPassword', 'adminConfirmIcon');
 </script>

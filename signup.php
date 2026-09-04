@@ -44,51 +44,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>PhishShield — User Signup</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PhishShield — Create Account</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="assets/phishshield.css" rel="stylesheet">
 </head>
-<body class="bg-light">
-<div class="container py-5">
-  <div class="row justify-content-center">
-    <div class="col-md-5">
-      <div class="card shadow-sm">
-        <div class="card-body p-4">
-          <h3 class="text-center mb-4 text-primary">🛡️ User Signup</h3>
-          <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
-          <?php if ($success): ?><div class="alert alert-success"><?= htmlspecialchars($success) ?> <a href="login.php">Login</a></div><?php endif; ?>
-          <form method="post">
-            <div class="mb-3">
-              <label class="form-label">Full Name</label>
-              <input type="text" name="name" class="form-control" required value="<?= htmlspecialchars($_POST['name'] ?? '') ?>">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Email Address</label>
-              <input type="email" name="email" class="form-control" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Password</label>
-              <div class="input-group">
-                <input type="password" name="password" id="signupPassword" class="form-control" required>
-                <button class="btn btn-outline-secondary" type="button" id="toggleSignupPassword">
-                  <i class="bi bi-eye" id="signupIcon"></i>
-                </button>
-              </div>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Confirm Password</label>
-              <div class="input-group">
-                <input type="password" name="confirm_password" id="confirmPassword" class="form-control" required>
-                <button class="btn btn-outline-secondary" type="button" id="toggleConfirmPassword">
-                  <i class="bi bi-eye" id="confirmIcon"></i>
-                </button>
-              </div>
-            </div>
-            <button type="submit" class="btn btn-primary w-100">Sign Up</button>
-          </form>
-          <div class="text-center mt-3"><small>Already have an account? <a href="login.php">Login</a></small></div>
+<body class="ps-body">
+
+<div class="ps-auth">
+  <div class="ps-auth-brand">
+    <div class="ps-brand" style="color:#EDEFF5;font-size:18px;">
+      <span class="ps-brand-glyph"></span>PhishShield
+    </div>
+    <div class="ps-auth-copy">
+      <h1>Build the instincts that stop a real attack.</h1>
+      <p>Create your account to run email checks whenever something in your inbox looks off, and track how your risk-spotting improves over time.</p>
+    </div>
+    <div class="ps-auth-foot">&copy; <?= date('Y') ?> PhishShield</div>
+  </div>
+
+  <div class="ps-auth-stage">
+    <div class="ps-auth-form">
+      <h2>Create your account</h2>
+      <p class="ps-sub">It only takes a minute to get started.</p>
+
+      <?php if ($error): ?><div class="ps-alert ps-alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+      <?php if ($success): ?><div class="ps-alert ps-alert-success"><?= htmlspecialchars($success) ?> <a href="login.php">Sign in →</a></div><?php endif; ?>
+
+      <form method="post">
+        <div class="ps-field">
+          <label class="ps-label" for="name">Full name</label>
+          <input type="text" id="name" name="name" class="ps-input" required value="<?= htmlspecialchars($_POST['name'] ?? '') ?>">
         </div>
-      </div>
+        <div class="ps-field">
+          <label class="ps-label" for="email">Email address</label>
+          <input type="email" id="email" name="email" class="ps-input" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
+        </div>
+        <div class="ps-field">
+          <label class="ps-label" for="signupPassword">Password</label>
+          <div class="ps-input-group">
+            <input type="password" name="password" id="signupPassword" class="ps-input" required>
+            <span class="ps-input-suffix" id="toggleSignupPassword"><i class="bi bi-eye" id="signupIcon"></i></span>
+          </div>
+          <p class="ps-hint">At least 6 characters.</p>
+        </div>
+        <div class="ps-field">
+          <label class="ps-label" for="confirmPassword">Confirm password</label>
+          <div class="ps-input-group">
+            <input type="password" name="confirm_password" id="confirmPassword" class="ps-input" required>
+            <span class="ps-input-suffix" id="toggleConfirmPassword"><i class="bi bi-eye" id="confirmIcon"></i></span>
+          </div>
+        </div>
+        <button type="submit" class="ps-btn ps-btn-primary ps-btn-block">Sign up</button>
+      </form>
+
+      <p class="ps-footer-note">Already have an account? <a href="login.php">Sign in</a></p>
     </div>
   </div>
 </div>
@@ -98,18 +108,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     document.getElementById(buttonId).addEventListener('click', function () {
       const input = document.getElementById(inputId);
       const icon = document.getElementById(iconId);
-      if (input.type === 'password') {
-        input.type = 'text';
-        icon.classList.remove('bi-eye');
-        icon.classList.add('bi-eye-slash');
-      } else {
-        input.type = 'password';
-        icon.classList.remove('bi-eye-slash');
-        icon.classList.add('bi-eye');
-      }
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      icon.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
     });
   }
-
   setupToggle('toggleSignupPassword', 'signupPassword', 'signupIcon');
   setupToggle('toggleConfirmPassword', 'confirmPassword', 'confirmIcon');
 </script>

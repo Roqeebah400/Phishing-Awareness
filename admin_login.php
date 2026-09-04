@@ -49,70 +49,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>PhishShield — Admin Login</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>PhishShield — Admin Sign In</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="assets/phishshield.css" rel="stylesheet">
 </head>
-<body class="bg-dark">
+<body class="ps-body">
 
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-md-5">
-            <div class="card shadow-sm mt-4 border-danger">
-                <div class="card-body p-4">
-
-                    <h3 class="text-center mb-4 text-danger">
-                        🔐 Admin Portal Login
-                    </h3>
-
-                    <?php if ($error): ?>
-                        <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
-                    <?php endif; ?>
-
-                    <form method="post">
-                        <div class="mb-3">
-                            <label class="form-label">Admin Email</label>
-                            <input type="email" name="email" class="form-control" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Password</label>
-                            <div class="input-group">
-                                <input type="password" name="password" id="loginPassword" class="form-control" required>
-                                <button class="btn btn-outline-secondary" type="button" id="toggleLoginPassword">
-                                    <i class="bi bi-eye" id="loginIcon"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <button type="submit" class="btn btn-danger w-100">Login to Dashboard</button>
-                    </form>
-
-                    <div class="text-center mt-3">
-                        <small class="text-muted">
-                            Need an Admin account? <a href="admin_signup.php" class="text-decoration-none">Sign Up</a>
-                        </small>
-                    </div>
-
-                </div>
-            </div>
-        </div>
+<div class="ps-auth">
+  <div class="ps-auth-brand is-admin">
+    <div class="ps-brand" style="color:#EDEFF5;font-size:18px;">
+      <span class="ps-brand-glyph"></span>PhishShield <span class="ps-mode-tag">Admin</span>
     </div>
+    <div class="ps-auth-copy">
+      <h1>Run your organisation's awareness programme.</h1>
+      <p>Manage employees, launch simulation campaigns, and review who needs more training.</p>
+    </div>
+    <div class="ps-auth-foot">&copy; <?= date('Y') ?> PhishShield</div>
+  </div>
+
+  <div class="ps-auth-stage">
+    <div class="ps-auth-form">
+      <h2>Admin sign in</h2>
+      <p class="ps-sub">Restricted to administrator accounts.</p>
+
+      <?php if ($error): ?><div class="ps-alert ps-alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+
+      <form method="post">
+        <div class="ps-field">
+          <label class="ps-label" for="email">Admin email</label>
+          <input type="email" id="email" name="email" class="ps-input" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
+        </div>
+        <div class="ps-field">
+          <label class="ps-label" for="loginPassword">Password</label>
+          <div class="ps-input-group">
+            <input type="password" name="password" id="loginPassword" class="ps-input" required>
+            <span class="ps-input-suffix" id="toggleLoginPassword"><i class="bi bi-eye" id="loginIcon"></i></span>
+          </div>
+        </div>
+        <button type="submit" class="ps-btn ps-btn-admin ps-btn-block">Sign in to dashboard</button>
+      </form>
+
+      <p class="ps-footer-note">Need an admin account? <a href="admin_signup.php">Sign up</a></p>
+      <p class="ps-footer-note">Not an admin? <a href="login.php">Go to user sign in</a></p>
+    </div>
+  </div>
 </div>
 
 <script>
   document.getElementById('toggleLoginPassword').addEventListener('click', function () {
-    const passwordInput = document.getElementById('loginPassword');
+    const input = document.getElementById('loginPassword');
     const icon = document.getElementById('loginIcon');
-    if (passwordInput.type === 'password') {
-      passwordInput.type = 'text';
-      icon.classList.remove('bi-eye');
-      icon.classList.add('bi-eye-slash');
-    } else {
-      passwordInput.type = 'password';
-      icon.classList.remove('bi-eye-slash');
-      icon.classList.add('bi-eye');
-    }
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    icon.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
   });
 </script>
 </body>

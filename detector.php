@@ -190,88 +190,129 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+
+// Map internal color keywords to design-system accent classes
+$colorMap = [
+    'danger'  => ['card' => 'ps-result-danger',  'badge' => 'ps-badge-danger'],
+    'warning' => ['card' => 'ps-result-warning', 'badge' => 'ps-badge-warn'],
+    'success' => ['card' => 'ps-result-success', 'badge' => 'ps-badge-good'],
+];
+$resultClasses = $result ? $colorMap[$result['color']] : null;
 ?>
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PhishShield — Email Detector</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="assets/phishshield.css" rel="stylesheet">
+  <style>
+    .ps-score-ring{
+      width:96px; height:96px;
+      border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      flex-direction:column;
+      font-family:ui-serif,Georgia,serif;
+      flex-shrink:0;
+    }
+    .ps-result-danger .ps-score-ring{ background:var(--danger-tint); color:var(--danger); border:2px solid #F3B6B0; }
+    .ps-result-warning .ps-score-ring{ background:var(--warn-tint); color:var(--warn); border:2px solid #EAD097; }
+    .ps-result-success .ps-score-ring{ background:var(--good-tint); color:var(--good); border:2px solid #A9E2C4; }
+    .ps-score-ring b{ font-size:22px; line-height:1; }
+    .ps-score-ring span{ font-size:10.5px; color:var(--muted); font-family:-apple-system,sans-serif; margin-top:2px; }
+    .ps-result-head{ display:flex; align-items:center; gap:20px; }
+    .ps-result-danger{ border-color:#F3B6B0; }
+    .ps-result-warning{ border-color:#EAD097; }
+    .ps-result-success{ border-color:#A9E2C4; }
+  </style>
 </head>
-<body class="bg-light">
-<nav class="navbar navbar-dark bg-dark">
-  <div class="container">
-    <span class="navbar-brand">🛡️ PhishShield</span>
-    <div class="text-light">
-      Welcome, <strong><?= htmlspecialchars($_SESSION['user_name'] ?? 'User') ?></strong>
-      <a href="dashboard.php" class="btn btn-outline-light btn-sm ms-2">My Dashboard</a>
-      <a href="logout.php" class="btn btn-danger btn-sm ms-2">Logout</a>
+<body class="ps-body">
+
+<nav class="ps-nav">
+  <div class="ps-nav-inner">
+    <div class="ps-brand"><span class="ps-brand-glyph"></span>PhishShield</div>
+    <div class="ps-nav-actions">
+      <span class="ps-nav-user">Welcome, <strong><?= htmlspecialchars($_SESSION['user_name'] ?? 'User') ?></strong></span>
+      <a href="dashboard.php" class="ps-btn ps-btn-ghost ps-btn-sm">My dashboard</a>
+      <a href="logout.php" class="ps-btn ps-btn-ghost ps-btn-sm">Logout</a>
     </div>
   </div>
 </nav>
-<div class="container py-5">
-  <div class="row justify-content-center">
-    <div class="col-lg-8">
 
-      <?php if ($db_error): ?>
-        <div class="alert alert-danger mb-4"><?= htmlspecialchars($db_error) ?></div>
-      <?php endif; ?>
+<div class="ps-shell-narrow ps-page">
+  <h1 style="font-size:26px;">Scan a suspicious email</h1>
+  <p style="margin-bottom:24px;">Paste the sender and message content below. We'll flag urgency language, spoofed domains, malicious links, and more.</p>
 
-      <div class="card shadow-sm mb-4">
-        <div class="card-body">
-          <h4>Scan Suspicious Email</h4>
-          <form method="post">
-            <div class="mb-3">
-              <label>Sender Email (optional)</label>
-              <input type="text" name="sender" class="form-control" value="<?= htmlspecialchars($sender) ?>">
-            </div>
-            <div class="mb-3">
-              <label>Email Content</label>
-              <textarea name="email_text" rows="7" class="form-control" required><?= htmlspecialchars($email_text) ?></textarea>
-            </div>
-            <button type="submit" class="btn btn-primary">Scan Email</button>
-          </form>
+  <?php if ($db_error): ?>
+    <div class="ps-alert ps-alert-danger"><?= htmlspecialchars($db_error) ?></div>
+  <?php endif; ?>
+
+  <div class="ps-card" style="margin-bottom:20px;">
+    <div class="ps-card-body">
+      <form method="post">
+        <div class="ps-field">
+          <label class="ps-label" for="sender">Sender email <span style="font-weight:400;color:var(--faint);">(optional)</span></label>
+          <input type="text" id="sender" name="sender" class="ps-input" placeholder="e.g. support@company-secure.com" value="<?= htmlspecialchars($sender) ?>">
         </div>
-      </div>
-
-           <?php if ($result): ?>
-      <div class="card border-<?= $result['color'] ?> mb-3">
-        <div class="card-body">
-          <h5>Verdict: <span class="badge bg-<?= $result['color'] ?>"><?= $result['label'] ?></span></h5>
-          <p>Risk Score: <strong><?= $score ?>/100</strong></p>
-          <?php if ($flags): ?>
-            <h6>Red Flags (Rule-Based Detection):</h6>
-            <ul><?php foreach ($flags as $f): ?><li><?= htmlspecialchars($f) ?></li><?php endforeach; ?></ul>
-          <?php else: ?>
-            <p class="text-success mb-0">No obvious phishing indicators or suspicious links detected.</p>
-          <?php endif; ?>
+        <div class="ps-field">
+          <label class="ps-label" for="email_text">Email content</label>
+          <textarea id="email_text" name="email_text" rows="8" class="ps-textarea" placeholder="Paste the full email text here…" required><?= htmlspecialchars($email_text) ?></textarea>
         </div>
-      </div>
-      <?php endif; ?>
-
-      <?php if ($ai_assessment): ?>
-      <div class="card border-info mb-3">
-        <div class="card-body">
-          <h6 class="text-info mb-2">🤖 AI Assessment (Groq — second opinion)</h6>
-          <p class="mb-1">AI risk score: <strong><?= $ai_assessment['score'] ?>/100</strong></p>
-          <p class="text-muted small mb-0"><?= htmlspecialchars($ai_assessment['reasoning']) ?></p>
-        </div>
-      </div>
-      <?php endif; ?>
-
-      <?php if ($api_notes): ?>
-      <div class="card border-secondary">
-        <div class="card-body">
-          <h6 class="text-muted mb-2">External checks not applied to this scan:</h6>
-          <ul class="text-muted small mb-0">
-            <?php foreach ($api_notes as $n): ?><li><?= htmlspecialchars($n) ?></li><?php endforeach; ?>
-          </ul>
-        </div>
-      </div>
-      <?php endif; ?>
-
+        <button type="submit" class="ps-btn ps-btn-primary">Scan email</button>
+      </form>
     </div>
   </div>
+
+  <?php if ($result): ?>
+  <div class="ps-card <?= $resultClasses['card'] ?>" style="margin-bottom:20px;">
+    <div class="ps-card-body">
+      <div class="ps-result-head" style="margin-bottom:18px;">
+        <div class="ps-score-ring">
+          <b><?= $score ?></b>
+          <span>/ 100</span>
+        </div>
+        <div>
+          <div class="ps-small" style="margin-bottom:4px;">Verdict</div>
+          <span class="ps-badge <?= $resultClasses['badge'] ?>" style="font-size:13.5px;"><?= htmlspecialchars($result['label']) ?></span>
+        </div>
+      </div>
+
+      <?php if ($flags): ?>
+        <div class="ps-section-head" style="margin-top:8px;margin-bottom:10px;">
+          <h3 style="font-size:15px;">Red flags found</h3>
+        </div>
+        <ul class="ps-flag-list">
+          <?php foreach ($flags as $f): ?><li><?= htmlspecialchars($f) ?></li><?php endforeach; ?>
+        </ul>
+      <?php else: ?>
+        <p style="color:var(--good);margin:0;">No obvious phishing indicators or suspicious links detected.</p>
+      <?php endif; ?>
+    </div>
+  </div>
+  <?php endif; ?>
+
+  <?php if ($ai_assessment): ?>
+  <div class="ps-card" style="margin-bottom:20px;border-left:3px solid var(--blue-bright);">
+    <div class="ps-card-body">
+      <h3 style="font-size:14.5px;color:var(--blue-deep);">AI assessment — second opinion</h3>
+      <p style="margin-bottom:4px;">AI risk score: <strong style="color:var(--ink);"><?= $ai_assessment['score'] ?>/100</strong></p>
+      <p class="ps-small" style="margin:0;"><?= htmlspecialchars($ai_assessment['reasoning']) ?></p>
+    </div>
+  </div>
+  <?php endif; ?>
+
+  <?php if ($api_notes): ?>
+  <div class="ps-card">
+    <div class="ps-card-body">
+      <h3 style="font-size:13.5px;color:var(--muted);">External checks not applied to this scan</h3>
+      <ul class="ps-flag-list ps-small">
+        <?php foreach ($api_notes as $n): ?><li><?= htmlspecialchars($n) ?></li><?php endforeach; ?>
+      </ul>
+    </div>
+  </div>
+  <?php endif; ?>
+
 </div>
+
 </body>
 </html>

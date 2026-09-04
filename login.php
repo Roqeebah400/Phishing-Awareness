@@ -43,57 +43,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>PhishShield — User Login</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PhishShield — Sign In</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="assets/phishshield.css" rel="stylesheet">
 </head>
-<body class="bg-light">
-<div class="container py-5">
-  <div class="row justify-content-center">
-    <div class="col-md-5">
-      <div class="card shadow-sm">
-        <div class="card-body p-4">
-          <h3 class="text-center mb-4 text-primary">🛡️ User Login</h3>
-          <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
-          <form method="post">
-            <div class="mb-3">
-              <label class="form-label">Email Address</label>
-              <input type="email" name="email" class="form-control" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
-            </div>
-            <div class="mb-3">
-              <div class="d-flex justify-content-between align-items-center">
-                <label class="form-label mb-0">Password</label>
-                <a href="forgot_password.php" class="small text-decoration-none">Forgot Password?</a>
-              </div>
-              <div class="input-group mt-1">
-                <input type="password" name="password" id="loginPassword" class="form-control" required>
-                <button class="btn btn-outline-secondary" type="button" id="toggleLoginPassword">
-                  <i class="bi bi-eye" id="loginIcon"></i>
-                </button>
-              </div>
-            </div>
-            <button type="submit" class="btn btn-primary w-100">Login</button>
-          </form>
-          <div class="text-center mt-3"><small>Need an account? <a href="signup.php">Sign Up</a></small></div>
+<body class="ps-body">
+
+<div class="ps-auth">
+  <div class="ps-auth-brand">
+    <div class="ps-brand" style="color:#EDEFF5;font-size:18px;">
+      <span class="ps-brand-glyph"></span>PhishShield
+    </div>
+    <div class="ps-auth-copy">
+      <h1>Know a phishing email the moment it lands.</h1>
+      <p>Sign in to scan suspicious emails, review your risk history, and keep sharpening your instincts.</p>
+    </div>
+    <div class="ps-auth-foot">&copy; <?= date('Y') ?> PhishShield</div>
+  </div>
+
+  <div class="ps-auth-stage">
+    <div class="ps-auth-form">
+      <h2>Welcome back</h2>
+      <p class="ps-sub">Sign in to your PhishShield account.</p>
+
+      <?php if ($error): ?><div class="ps-alert ps-alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+
+      <form method="post">
+        <div class="ps-field">
+          <label class="ps-label" for="email">Email address</label>
+          <input type="email" id="email" name="email" class="ps-input" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
         </div>
-      </div>
+        <div class="ps-field">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <label class="ps-label" for="loginPassword" style="margin-bottom:0;">Password</label>
+            <a href="forgot_password.php" class="ps-small">Forgot password?</a>
+          </div>
+          <div class="ps-input-group">
+            <input type="password" name="password" id="loginPassword" class="ps-input" required>
+            <span class="ps-input-suffix" id="toggleLoginPassword"><i class="bi bi-eye" id="loginIcon"></i></span>
+          </div>
+        </div>
+        <button type="submit" class="ps-btn ps-btn-primary ps-btn-block">Sign in</button>
+      </form>
+
+      <p class="ps-footer-note">Need an account? <a href="signup.php">Sign up</a></p>
+      <p class="ps-footer-note">Administrator? <a href="admin_login.php">Go to admin login</a></p>
     </div>
   </div>
 </div>
 
 <script>
   document.getElementById('toggleLoginPassword').addEventListener('click', function () {
-    const passwordInput = document.getElementById('loginPassword');
+    const input = document.getElementById('loginPassword');
     const icon = document.getElementById('loginIcon');
-    if (passwordInput.type === 'password') {
-      passwordInput.type = 'text';
-      icon.classList.remove('bi-eye');
-      icon.classList.add('bi-eye-slash');
-    } else {
-      passwordInput.type = 'password';
-      icon.classList.remove('bi-eye-slash');
-      icon.classList.add('bi-eye');
-    }
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    icon.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
   });
 </script>
 </body>

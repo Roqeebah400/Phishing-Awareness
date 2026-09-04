@@ -60,44 +60,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PhishShield — Email Sending Settings</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="assets/phishshield.css" rel="stylesheet">
 </head>
-<body class="bg-light">
-<nav class="navbar navbar-dark bg-danger px-4">
-  <span class="navbar-brand">⚙️ Email Sending Settings</span>
-  <a href="manage.php" class="btn btn-dark btn-sm">Back to Admin</a>
+<body class="ps-body">
+
+<nav class="ps-nav is-admin">
+  <div class="ps-nav-inner">
+    <div class="ps-brand"><span class="ps-brand-glyph"></span>PhishShield <span class="ps-mode-tag">Admin</span></div>
+    <div class="ps-nav-actions">
+      <a href="manage.php" class="ps-btn ps-btn-ghost ps-btn-sm">← Back to admin</a>
+    </div>
+  </div>
 </nav>
-<div class="container py-5">
-  <div class="row justify-content-center">
-    <div class="col-md-7">
 
-      <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
-      <?php if ($success): ?><div class="alert alert-success"><?= htmlspecialchars($success) ?></div><?php endif; ?>
+<div class="ps-shell-narrow ps-page">
+  <div style="max-width:520px;margin:0 auto;">
+    <h1 style="font-size:24px;">Email sending settings</h1>
+    <p style="margin-bottom:20px;">Configure the account campaign emails are sent from.</p>
 
-      <div class="card shadow-sm">
-        <div class="card-body">
-          <p class="text-muted">Emails are sent via <a href="https://www.brevo.com" target="_blank">Brevo</a>. Create your own free Brevo account, verify your sending domain there, then paste your API key below.</p>
-          <form method="post">
-            <div class="mb-3">
-              <label class="form-label">Brevo API Key</label>
-              <input type="password" name="brevo_api_key" class="form-control" placeholder="xkeysib-..." value="<?= htmlspecialchars($settings['brevo_api_key'] ?? '') ?>" required>
-              <small class="text-muted">Find this in your Brevo account under Settings → SMTP & API → API Keys.</small>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">From Email</label>
-              <input type="email" name="from_email" class="form-control" placeholder="e.g. security@yourcompany.com" value="<?= htmlspecialchars($settings['from_email'] ?? '') ?>" required>
-              <small class="text-muted">Must be an address on a domain you've verified in Brevo.</small>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">From Name</label>
-              <input type="text" name="from_name" class="form-control" placeholder="e.g. IT Support" value="<?= htmlspecialchars($settings['from_name'] ?? 'IT Support') ?>">
-            </div>
-            <button type="submit" class="btn btn-danger">Save Settings</button>
-          </form>
-        </div>
+    <?php if ($error): ?><div class="ps-alert ps-alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+    <?php if ($success): ?><div class="ps-alert ps-alert-success"><?= htmlspecialchars($success) ?></div><?php endif; ?>
+
+    <div class="ps-card">
+      <div class="ps-card-body">
+        <p class="ps-small" style="margin-bottom:20px;">Emails are sent via <a href="https://www.brevo.com" target="_blank">Brevo</a>. Create your own free Brevo account, verify your sending domain there, then paste your API key below.</p>
+        <form method="post">
+          <div class="ps-field">
+            <label class="ps-label">Brevo API key</label>
+            <input type="password" name="brevo_api_key" class="ps-input" placeholder="xkeysib-..." value="<?= htmlspecialchars($settings['brevo_api_key'] ?? '') ?>" required>
+            <p class="ps-hint">Find this in your Brevo account under Settings → SMTP &amp; API → API Keys.</p>
+          </div>
+          <div class="ps-field">
+            <label class="ps-label">From email</label>
+            <input type="email" name="from_email" class="ps-input" placeholder="e.g. security@yourcompany.com" value="<?= htmlspecialchars($settings['from_email'] ?? '') ?>" required>
+            <p class="ps-hint">Must be an address on a domain you've verified in Brevo.</p>
+          </div>
+          <div class="ps-field">
+            <label class="ps-label">From name</label>
+            <input type="text" name="from_name" class="ps-input" placeholder="e.g. IT Support" value="<?= htmlspecialchars($settings['from_name'] ?? 'IT Support') ?>">
+          </div>
+          <button type="submit" class="ps-btn ps-btn-admin ps-btn-block">Save settings</button>
+        </form>
       </div>
-
     </div>
   </div>
 </div>

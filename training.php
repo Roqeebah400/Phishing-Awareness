@@ -58,31 +58,46 @@ $lesson = $lessons[$template_type] ?? $default_lesson;
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Security Training — Teachable Moment</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>body{background:#f8f9fa}</style>
+    <title>PhishShield — Security Training</title>
+    <link href="assets/phishshield.css" rel="stylesheet">
+    <style>
+      .ps-training-shell{ max-width:640px; margin:0 auto; padding:56px 24px; }
+      .ps-training-mark{
+        width:44px;height:44px;border-radius:12px;
+        background:linear-gradient(150deg,var(--blue-bright),var(--blue-deep));
+        display:flex;align-items:center;justify-content:center;
+        color:#fff;font-size:20px;margin-bottom:18px;
+      }
+    </style>
 </head>
-<body>
-<div class="container py-5">
-    <div class="card shadow-sm">
-        <div class="card-body">
-                        <h1 class="h3"><?= htmlspecialchars($lesson['title']) ?></h1>
-            <p class="text-muted">Thanks for completing the check. This short lesson highlights what to watch for next time.</p>
+<body class="ps-body">
+<div class="ps-training-shell">
+  <div class="ps-card">
+    <div class="ps-card-body" style="padding:36px 36px 32px;">
+      <div class="ps-training-mark">🎯</div>
+      <h1 style="font-size:24px;"><?= htmlspecialchars($lesson['title']) ?></h1>
+      <p>Thanks for completing the check. This short lesson highlights what to watch for next time.</p>
 
-            <h5 class="mt-4">Common Red Flags</h5>
-            <ul>
-                <?php foreach ($lesson['tips'] as $tip): ?>
-                <li><?= htmlspecialchars($tip) ?></li>
-                <?php endforeach; ?>
-            </ul>
+      <hr class="ps-divider">
 
-            <h5 class="mt-4">What We Logged</h5>
-            <p class="small text-muted">We recorded that you attempted to submit data for the simulation. We do <strong>not</strong> store any submitted passwords or secrets — only the fact that a submission occurred and timing/context metadata.</p>
+      <h3 style="font-size:15px;">Common red flags</h3>
+      <ul class="ps-flag-list">
+        <?php foreach ($lesson['tips'] as $tip): ?>
+        <li><?= htmlspecialchars($tip) ?></li>
+        <?php endforeach; ?>
+      </ul>
 
-            <a href="detector.php<?= $eid ? '?eid='.$eid : '' ?>" class="btn btn-outline-danger mt-3">Try the Email Detector Now</a>
-            <a href="dashboard.php" class="btn btn-primary mt-3">Return to Home</a>
-        </div>
+      <hr class="ps-divider">
+
+      <h3 style="font-size:15px;">What we logged</h3>
+      <p class="ps-small" style="margin:0;">We recorded that you attempted to submit data for the simulation. We do <strong>not</strong> store any submitted passwords or secrets — only the fact that a submission occurred and timing/context metadata.</p>
+
+      <div style="display:flex;gap:10px;margin-top:26px;flex-wrap:wrap;">
+        <a href="detector.php<?= $eid ? '?eid='.$eid : '' ?>" class="ps-btn ps-btn-ghost">Try the email detector now</a>
+        <a href="dashboard.php" class="ps-btn ps-btn-primary">Return to home</a>
+      </div>
     </div>
+  </div>
 </div>
 </body>
 </html>

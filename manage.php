@@ -92,419 +92,175 @@ $logs_stmt = $pdo->prepare(
 $logs_stmt->execute([':aid' => $admin_id]);
 $logs = $logs_stmt->fetchAll();
 ?>
-
 <!doctype html>
 <html lang="en">
-
 <head>
-
   <meta charset="utf-8">
-
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
   <title>PhishShield — Admin Dashboard</title>
-
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-    rel="stylesheet"
-  >
-
+  <link href="assets/phishshield.css" rel="stylesheet">
 </head>
+<body class="ps-body">
 
-<body class="bg-light">
-
-
-<nav class="navbar navbar-dark bg-danger px-4">
-
-  <span class="navbar-brand">
-    ⚙️ Admin Control Panel
-  </span>
-
-  <div>
-
-       <a href="manage_employees.php" class="btn btn-outline-light btn-sm me-2">
-      Employees & Campaigns
-    </a>
-
-    <a href="send_email.php" class="btn btn-outline-light btn-sm me-2">
-      Send Campaign
-    </a>
-
-    <a href="settings.php" class="btn btn-outline-light btn-sm me-2">
-      Email Settings
-    </a>
-
-    <span class="text-white me-3">
-      Admin:
-      <strong>
-        <?= htmlspecialchars($_SESSION['user_name']) ?>
-      </strong>
-    </span>
-
-    <a href="logout.php" class="btn btn-dark btn-sm">
-      Logout
-    </a>
-
+<nav class="ps-nav is-admin">
+  <div class="ps-nav-inner">
+    <div class="ps-brand"><span class="ps-brand-glyph"></span>PhishShield <span class="ps-mode-tag">Admin</span></div>
+    <div class="ps-nav-actions">
+      <a href="manage_employees.php" class="ps-btn ps-btn-ghost ps-btn-sm">Employees &amp; campaigns</a>
+      <a href="send_email.php" class="ps-btn ps-btn-ghost ps-btn-sm">Send campaign</a>
+      <a href="settings.php" class="ps-btn ps-btn-ghost ps-btn-sm">Email settings</a>
+      <span class="ps-nav-user">Admin: <strong><?= htmlspecialchars($_SESSION['user_name']) ?></strong></span>
+      <a href="logout.php" class="ps-btn ps-btn-admin ps-btn-sm">Logout</a>
+    </div>
   </div>
-
 </nav>
 
+<div class="ps-shell ps-page">
 
-<div class="container py-5">
+  <?php if ($error): ?><div class="ps-alert ps-alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+  <?php if ($success): ?><div class="ps-alert ps-alert-success"><?= htmlspecialchars($success) ?></div><?php endif; ?>
 
-  <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
-  <?php if ($success): ?><div class="alert alert-success"><?= htmlspecialchars($success) ?></div><?php endif; ?>
+  <h1 style="font-size:26px;">Admin overview</h1>
+  <p style="margin-bottom:20px;">Organisation-wide detector usage and simulation performance.</p>
 
-  <div class="row mb-4">
-
-    <div class="col-md-4">
-
-      <div class="card bg-primary text-white">
-
-        <div class="card-body">
-
-          <h5>Total Users</h5>
-
-          <h2>
-            <?= $total_users ?>
-          </h2>
-
-        </div>
-
-      </div>
-
+  <div class="ps-stats">
+    <div class="ps-stat accent-blue">
+      <div class="ps-stat-label">Total users</div>
+      <div class="ps-stat-value"><?= $total_users ?></div>
     </div>
-
-    <div class="col-md-4">
-
-      <div class="card bg-info text-white">
-
-        <div class="card-body">
-
-          <h5>Total Scans</h5>
-
-          <h2>
-            <?= $total_scans ?>
-          </h2>
-
-        </div>
-
-      </div>
-
+    <div class="ps-stat">
+      <div class="ps-stat-label">Total scans</div>
+      <div class="ps-stat-value"><?= $total_scans ?></div>
     </div>
-
-    <div class="col-md-4">
-
-      <div class="card bg-danger text-white">
-
-        <div class="card-body">
-
-          <h5>Threats Detected</h5>
-
-          <h2>
-            <?= $total_threats ?>
-          </h2>
-
-        </div>
-
-      </div>
-
-    </div>
-
-  </div>
-
-    <form method="get" class="mb-3">
-    <label class="form-label">Filter by Campaign</label>
-    <select name="campaign_id" class="form-select w-auto d-inline-block" onchange="this.form.submit()">
-      <option value="">All Campaigns (Combined)</option>
-      <?php foreach ($all_campaigns as $ac): ?>
-        <option value="<?= $ac['id'] ?>" <?= $selected_campaign == $ac['id'] ? 'selected' : '' ?>>
-          <?= htmlspecialchars($ac['campaign_name']) ?>
-        </option>
-      <?php endforeach; ?>
-    </select>
-  </form>
-
-  <div class="row mb-4">
-    <div class="col-md-4">
-      <div class="card bg-secondary text-white">
-        <div class="card-body">
-          <h5>Emails Sent</h5>
-          <h2><?= $sent_count ?></h2>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card bg-warning text-dark">
-        <div class="card-body">
-          <h5>Click Rate</h5>
-          <h2><?= $click_rate ?>%</h2>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card bg-dark text-white">
-        <div class="card-body">
-          <h5>Credential Compromise Rate</h5>
-          <h2><?= $compromise_rate ?>%</h2>
-        </div>
-      </div>
+    <div class="ps-stat accent-danger">
+      <div class="ps-stat-label">Threats detected</div>
+      <div class="ps-stat-value"><?= $total_threats ?></div>
     </div>
   </div>
 
+  <div class="ps-section-head" style="margin-top:8px;">
+    <h3>Campaign performance</h3>
+    <form method="get">
+      <select name="campaign_id" class="ps-select" style="width:auto;display:inline-block;" onchange="this.form.submit()">
+        <option value="">All campaigns (combined)</option>
+        <?php foreach ($all_campaigns as $ac): ?>
+          <option value="<?= $ac['id'] ?>" <?= $selected_campaign == $ac['id'] ? 'selected' : '' ?>>
+            <?= htmlspecialchars($ac['campaign_name']) ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
+    </form>
+  </div>
 
-  <!-- REGISTERED USERS -->
+  <div class="ps-stats">
+    <div class="ps-stat">
+      <div class="ps-stat-label">Emails sent</div>
+      <div class="ps-stat-value"><?= $sent_count ?></div>
+    </div>
+    <div class="ps-stat accent-warn">
+      <div class="ps-stat-label">Click rate</div>
+      <div class="ps-stat-value"><?= $click_rate ?>%</div>
+    </div>
+    <div class="ps-stat accent-danger">
+      <div class="ps-stat-label">Credential compromise rate</div>
+      <div class="ps-stat-value"><?= $compromise_rate ?>%</div>
+    </div>
+  </div>
 
-  <h4 class="mb-3">
-    Registered Users
-  </h4>
+  <div class="ps-section-head">
+    <h3>Registered users</h3>
+    <p>Accounts you've created are only visible on your dashboard.</p>
+  </div>
 
-  <div class="card mb-3">
-    <div class="card-body">
-      <h6 class="mb-3">Create a New User Account</h6>
-      <form method="post" class="row g-2 align-items-end">
+  <div class="ps-card" style="margin-bottom:24px;">
+    <div class="ps-card-body">
+      <h3 style="font-size:14.5px;">Create a new user account</h3>
+      <form method="post" class="ps-grid-2" style="align-items:end;gap:14px;">
         <input type="hidden" name="create_user" value="1">
-        <div class="col-md-3">
-          <label class="form-label">Full Name</label>
-          <input type="text" name="new_name" class="form-control" required>
+        <div class="ps-field" style="margin-bottom:0;">
+          <label class="ps-label">Full name</label>
+          <input type="text" name="new_name" class="ps-input" required>
         </div>
-        <div class="col-md-3">
-          <label class="form-label">Email</label>
-          <input type="email" name="new_email" class="form-control" required>
+        <div class="ps-field" style="margin-bottom:0;">
+          <label class="ps-label">Email</label>
+          <input type="email" name="new_email" class="ps-input" required>
         </div>
-        <div class="col-md-3">
-          <label class="form-label">Password</label>
-          <input type="text" name="new_password" class="form-control" placeholder="min 6 characters" required>
+        <div class="ps-field" style="margin-bottom:0;">
+          <label class="ps-label">Password</label>
+          <input type="text" name="new_password" class="ps-input" placeholder="min 6 characters" required>
         </div>
-        <div class="col-md-3">
-          <button type="submit" class="btn btn-primary w-100">Create Account</button>
-        </div>
+        <button type="submit" class="ps-btn ps-btn-admin">Create account</button>
       </form>
-      <small class="text-muted d-block mt-2">Share the email and password with the person so they can log in at /login.php. Accounts you create here only appear on your dashboard — not visible to other admins.</small>
+      <p class="ps-hint" style="margin-top:12px;">Share the email and password with the person so they can log in at /login.php.</p>
     </div>
   </div>
 
-  <div class="card mb-5">
-
-    <div class="card-body p-0">
-
-      <table class="table table-striped mb-0">
-
-        <thead class="table-dark">
-
-          <tr>
-
-            <th>ID</th>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Registered</th>
-            <th>Action</th>
-
-          </tr>
-
+  <div class="ps-card ps-card-flush" style="margin-bottom:36px;">
+    <div class="ps-table-wrap">
+      <table class="ps-table">
+        <thead>
+          <tr><th>ID</th><th>Name</th><th>Email</th><th>Registered</th><th></th></tr>
         </thead>
-
-
         <tbody>
-
-          <?php foreach ($users as $u): ?>
-
-            <tr>
-
-              <td>
-                <?= $u['id'] ?>
-              </td>
-
-              <td>
-                <?= htmlspecialchars($u['name']) ?>
-              </td>
-
-              <td>
-                <?= htmlspecialchars($u['email']) ?>
-              </td>
-
-              <td>
-                <?= date('M d, Y', strtotime($u['created_at'])) ?>
-              </td>
-
-              <td>
-
-                <form
-                  action="delete_user.php"
-                  method="POST"
-                  style="display:inline;"
-                  onsubmit="return confirm('Are you sure you want to delete this user?');"
-                >
-
-                  <input
-                    type="hidden"
-                    name="user_id"
-                    value="<?= htmlspecialchars($u['id']) ?>"
-                  >
-
-                  <button
-                    type="submit"
-                    class="btn btn-danger btn-sm"
-                  >
-                    🗑️ Delete
-                  </button>
-
-                </form>
-
-              </td>
-
-            </tr>
-
-          <?php endforeach; ?>
-
+          <?php if ($users): ?>
+            <?php foreach ($users as $u): ?>
+              <tr>
+                <td><?= $u['id'] ?></td>
+                <td><?= htmlspecialchars($u['name']) ?></td>
+                <td><?= htmlspecialchars($u['email']) ?></td>
+                <td><?= date('M d, Y', strtotime($u['created_at'])) ?></td>
+                <td>
+                  <form action="delete_user.php" method="POST" onsubmit="return confirm('Are you sure you want to delete this user?');">
+                    <input type="hidden" name="user_id" value="<?= htmlspecialchars($u['id']) ?>">
+                    <button type="submit" class="ps-btn ps-btn-danger ps-btn-sm">Delete</button>
+                  </form>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          <?php else: ?>
+            <tr><td colspan="5"><div class="ps-empty">No users created yet.</div></td></tr>
+          <?php endif; ?>
         </tbody>
-
       </table>
-
     </div>
-
   </div>
 
+  <div class="ps-section-head">
+    <h3>Phishing detector logs</h3>
+  </div>
 
-
-  <!-- PHISHING LOGS -->
-
-  <h4 class="mb-3">
-    Phishing Logs
-  </h4>
-
-
-  <div class="card">
-
-    <div class="card-body p-0">
-
-      <table class="table table-hover mb-0">
-
-        <thead class="table-dark">
-
-          <tr>
-
-            <th>ID</th>
-
-            <th>User</th>
-
-            <th>Verdict</th>
-
-            <th>Score</th>
-
-            <th>Snippet</th>
-
-            <th>Date</th>
-
-            <!-- ADDED -->
-            <th>Action</th>
-
-          </tr>
-
+  <div class="ps-card ps-card-flush">
+    <div class="ps-table-wrap">
+      <table class="ps-table">
+        <thead>
+          <tr><th>ID</th><th>User</th><th>Verdict</th><th>Score</th><th>Snippet</th><th>Date</th><th></th></tr>
         </thead>
-
-
         <tbody>
-
-          <?php foreach ($logs as $l): ?>
-
-            <tr>
-
-              <td>
-                <?= $l['id'] ?>
-              </td>
-
-
-              <td>
-                <?= htmlspecialchars($l['user_name'] ?? 'Unknown') ?>
-              </td>
-
-
-              <td>
-
-                <span
-                  class="badge bg-<?= str_contains($l['verdict'], 'High') ? 'danger' : 'success' ?>"
-                >
-
-                  <?= htmlspecialchars($l['verdict']) ?>
-
-                </span>
-
-              </td>
-
-
-              <td>
-
-                <strong>
-                  <?= $l['risk_score'] ?>/100
-                </strong>
-
-              </td>
-
-
-              <td>
-
-                <code>
-                  <?= htmlspecialchars(substr($l['input_content'], 0, 40)) ?>...
-                </code>
-
-              </td>
-
-
-              <td>
-
-                <?= date(
-                  'M d, Y H:i',
-                  strtotime($l['created_at'])
-                ) ?>
-
-              </td>
-
-
-              <!-- DELETE BUTTON ADDED HERE -->
-
-              <td>
-
-                <form
-                  action="delete_log.php"
-                  method="POST"
-                  style="display:inline;"
-                  onsubmit="return confirm('Are you sure you want to delete this phishing log?');"
-                >
-
-                  <input
-                    type="hidden"
-                    name="log_id"
-                    value="<?= htmlspecialchars($l['id']) ?>"
-                  >
-
-                  <button
-                    type="submit"
-                    class="btn btn-danger btn-sm"
-                  >
-                    🗑️ Delete
-                  </button>
-
-                </form>
-
-              </td>
-
-
-            </tr>
-
-          <?php endforeach; ?>
-
+          <?php if ($logs): ?>
+            <?php foreach ($logs as $l): ?>
+              <tr>
+                <td><?= $l['id'] ?></td>
+                <td><?= htmlspecialchars($l['user_name'] ?? 'Unknown') ?></td>
+                <td><span class="ps-badge <?= str_contains($l['verdict'], 'High') ? 'ps-badge-danger' : 'ps-badge-good' ?>"><?= htmlspecialchars($l['verdict']) ?></span></td>
+                <td><strong><?= $l['risk_score'] ?>/100</strong></td>
+                <td><code><?= htmlspecialchars(substr($l['input_content'], 0, 40)) ?>...</code></td>
+                <td><?= date('M d, Y H:i', strtotime($l['created_at'])) ?></td>
+                <td>
+                  <form action="delete_log.php" method="POST" onsubmit="return confirm('Are you sure you want to delete this phishing log?');">
+                    <input type="hidden" name="log_id" value="<?= htmlspecialchars($l['id']) ?>">
+                    <button type="submit" class="ps-btn ps-btn-danger ps-btn-sm">Delete</button>
+                  </form>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          <?php else: ?>
+            <tr><td colspan="7"><div class="ps-empty">No scans logged yet.</div></td></tr>
+          <?php endif; ?>
         </tbody>
-
       </table>
-
     </div>
-
   </div>
-
 
 </div>
-
 </body>
-
 </html>
