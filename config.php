@@ -10,4 +10,5 @@ return [
     'VT_API_KEY'    => getenv('VT_API_KEY') ?: '',
     'WHOIS_API_KEY' => getenv('WHOIS_API_KEY') ?: '',
     'GROQ_API_KEY'  => getenv('GROQ_API_KEY') ?: '',
+    'BREVO_API_KEY' => getenv('BREVO_API_KEY') ?: '',
 ];

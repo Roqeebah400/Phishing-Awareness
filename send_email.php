@@ -1,12 +1,51 @@
 <?php
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/db.php';
-require __DIR__ . '/vendor/autoload.php';
-
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
 
 requireAdmin();
+
+/**
+ * Send one email via Brevo's HTTP API (port 443 — works even where SMTP ports are blocked).
+ * Returns ['success' => bool, 'error' => ?string]
+ */
+function sendViaBrevo(string $apiKey, string $fromEmail, string $fromName, string $toEmail, string $toName, string $subject, string $htmlBody): array
+{
+    $payload = json_encode([
+        'sender'      => ['email' => $fromEmail, 'name' => $fromName],
+        'to'          => [['email' => $toEmail, 'name' => $toName]],
+        'subject'     => $subject,
+        'htmlContent' => $htmlBody,
+    ]);
+
+    $ch = curl_init('https://api.brevo.com/v3/smtp/email');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 10,
+        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $payload,
+        CURLOPT_HTTPHEADER     => [
+            "api-key: {$apiKey}",
+            "Content-Type: application/json",
+            "Accept: application/json",
+        ],
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlErr  = curl_error($ch);
+    curl_close($ch);
+
+    if ($curlErr) {
+        return ['success' => false, 'error' => "Connection failed: {$curlErr}"];
+    }
+    if ($httpCode >= 200 && $httpCode < 300) {
+        return ['success' => true, 'error' => null];
+    }
+
+    $data = json_decode($response, true);
+    $msg  = $data['message'] ?? "Brevo returned HTTP {$httpCode}";
+    return ['success' => false, 'error' => $msg];
+}
 
 $error = '';
 $success = '';
@@ -15,8 +54,11 @@ $employees = $pdo->query("SELECT id, name, email, department FROM employees ORDE
 $campaigns = $pdo->query("SELECT id, campaign_name FROM campaigns ORDER BY sent_at DESC")->fetchAll();
 $smtp = $pdo->query("SELECT * FROM smtp_settings ORDER BY id DESC LIMIT 1")->fetch();
 $templates = $pdo->query("SELECT * FROM email_templates ORDER BY template_name")->fetchAll();
-if (!$smtp) {
-    $error = 'No email sending settings found. Please set up your SMTP settings first.';
+
+$brevoApiKey = $smtp['brevo_api_key'] ?? '';
+
+if (!$smtp || empty($smtp['from_email']) || empty($brevoApiKey)) {
+    $error = 'Email sending isn\'t set up yet. Please add your Brevo API key and From Email in Settings.';
 }
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $campaign_id = filter_input(INPUT_POST, 'campaign_id', FILTER_VALIDATE_INT);
@@ -27,12 +69,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $save_template_name = trim($_POST['save_template_name'] ?? '');
 
     if ($save_template_name !== '' && $subject !== '' && $message !== '') {
-        $stmt = $pdo->prepare("INSERT INTO email_templates (template_name, subject, message, link_text) VALUES (:n, :s, :m, :l)");
-        $stmt->execute([':n' => $save_template_name, ':s' => $subject, ':m' => $message, ':l' => $link_text]);
-        $templates = $pdo->query("SELECT * FROM email_templates ORDER BY template_name")->fetchAll();
+        if (mb_strlen($save_template_name) > 191) {
+            $error = 'Template name is too long (max 191 characters). Please shorten it.';
+        } else {
+            try {
+                $stmt = $pdo->prepare("INSERT INTO email_templates (template_name, subject, message, link_text) VALUES (:n, :s, :m, :l)");
+                $stmt->execute([':n' => $save_template_name, ':s' => $subject, ':m' => $message, ':l' => $link_text]);
+                $templates = $pdo->query("SELECT * FROM email_templates ORDER BY template_name")->fetchAll();
+            } catch (PDOException $e) {
+                $error = 'Could not save template — please check your inputs and try again.';
+            }
+        }
     }
 
-    if (!$campaign_id || empty($employee_ids) || $subject === '' || $message === '') {
+    if ($error) {
+        // Sender/API key missing — already set above, don't overwrite it.
+    } elseif (!$campaign_id || empty($employee_ids) || $subject === '' || $message === '') {
         $error = 'Pick a campaign, at least one employee, and fill in the subject and message.';
     } else {
         $baseUrl = (isset($_SERVER['HTTPS']) ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . dirname($_SERVER['PHP_SELF']);
@@ -55,30 +107,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $link = $baseUrl . '/index.php?t=' . $token;
 
-            $mail = new PHPMailer(true);
-            try {
-                $mail->isSMTP();
-                $mail->Host = $smtp['smtp_host'];
-                $mail->SMTPAuth = true;
-                $mail->Username = $smtp['smtp_username'];
-                $mail->Password = $smtp['smtp_password'];
-                $mail->Port = (int) $smtp['smtp_port'];
-                $mail->SMTPSecure = ((int)$smtp['smtp_port'] === 465)
-                    ? PHPMailer::ENCRYPTION_SMTPS
-                    : PHPMailer::ENCRYPTION_STARTTLS;
-                $mail->Timeout = 10;
-                $mail->SMTPKeepAlive = false;
+            $personalizedMessage = str_replace('{name}', $employee['name'], $message);
+            $htmlBody = nl2br(htmlspecialchars($personalizedMessage)) . "<br><br><a href='{$link}' style='display:inline-block;padding:10px 20px;background:#2F4B9E;color:#fff;text-decoration:none;border-radius:6px;'>" . htmlspecialchars($link_text) . "</a>";
 
-                $mail->setFrom($smtp['from_email'], $smtp['from_name']);
-                $mail->addAddress($employee['email'], $employee['name']);
-                $mail->Subject = $subject;
-                $mail->isHTML(true);
-                $personalizedMessage = str_replace('{name}', $employee['name'], $message);
-                $mail->Body = nl2br(htmlspecialchars($personalizedMessage)) . "<br><br><a href='{$link}' style='display:inline-block;padding:10px 20px;background:#2F4B9E;color:#fff;text-decoration:none;border-radius:6px;'>" . htmlspecialchars($link_text) . "</a>";
-                $mail->send();
+            $sendResult = sendViaBrevo(
+                $brevoApiKey,
+                $smtp['from_email'],
+                $smtp['from_name'] ?: 'IT Support',
+                $employee['email'],
+                $employee['name'],
+                $subject,
+                $htmlBody
+            );
+
+            if ($sendResult['success']) {
                 $sentCount++;
-            } catch (Exception $e) {
-                $error .= "Failed to email {$employee['email']}: {$mail->ErrorInfo}. ";
+            } else {
+                $error .= "Failed to email {$employee['email']}: {$sendResult['error']}. ";
             }
         }
 
@@ -106,7 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
         <?php if ($success): ?><div class="alert alert-success"><?= htmlspecialchars($success) ?></div><?php endif; ?>
 
-        <?php if (!$smtp): ?>
+        <?php if (!$smtp || empty($smtp['from_email'])): ?>
             <a href="settings.php" class="btn btn-warning mb-3">Set Up Email Sending →</a>
         <?php endif; ?>
 
@@ -148,7 +193,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Save this as a new template (optional)</label>
-                    <input type="text" name="save_template_name" class="form-control" placeholder="e.g. Fake IT Support Alert">
+                    <input type="text" name="save_template_name" class="form-control" maxlength="191" placeholder="e.g. Fake IT Support Alert">
                     <small class="text-muted">If you type a name here, this subject/message/button combo gets saved for reuse next time.</small>
                 </div>
 

@@ -10,38 +10,45 @@ $success = '';
 $settings = $pdo->query("SELECT * FROM smtp_settings ORDER BY id DESC LIMIT 1")->fetch();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $smtp_host     = trim($_POST['smtp_host'] ?? '');
-    $smtp_port     = filter_input(INPUT_POST, 'smtp_port', FILTER_VALIDATE_INT);
-    $smtp_username = trim($_POST['smtp_username'] ?? '');
-    $smtp_password = trim($_POST['smtp_password'] ?? '');
-    $from_email    = trim($_POST['from_email'] ?? '');
-    $from_name     = trim($_POST['from_name'] ?? 'IT Support');
+    $from_email     = trim($_POST['from_email'] ?? '');
+    $from_name      = trim($_POST['from_name'] ?? 'IT Support');
+    $brevo_api_key  = trim($_POST['brevo_api_key'] ?? '');
 
-    if (!$smtp_host || !$smtp_port || !$smtp_username || !$smtp_password || !filter_var($from_email, FILTER_VALIDATE_EMAIL)) {
-        $error = 'Please fill in all fields correctly (from email must be a valid email address).';
+    // Legacy columns from the SMTP era are still NOT NULL in the DB — Brevo doesn't
+    // need them, so we just fill placeholders. Safe to drop these columns later.
+    $smtp_host     = 'n/a-using-brevo-api';
+    $smtp_port     = 0;
+    $smtp_username = 'n/a-using-brevo-api';
+    $smtp_password = 'n/a-using-brevo-api';
+
+    if (!filter_var($from_email, FILTER_VALIDATE_EMAIL)) {
+        $error = 'Please enter a valid From Email address.';
+    } elseif ($brevo_api_key === '') {
+        $error = 'Please enter your Brevo API key.';
     } else {
         try {
             if ($settings) {
                 // Update the existing row
                 $stmt = $pdo->prepare(
-                    "UPDATE smtp_settings SET smtp_host=:host, smtp_port=:port, smtp_username=:user, smtp_password=:pass, from_email=:femail, from_name=:fname WHERE id=:id"
+                    "UPDATE smtp_settings SET smtp_host=:host, smtp_port=:port, smtp_username=:user, smtp_password=:pass, from_email=:femail, from_name=:fname, brevo_api_key=:bkey WHERE id=:id"
                 );
                 $stmt->execute([
                     ':host' => $smtp_host, ':port' => $smtp_port, ':user' => $smtp_username,
                     ':pass' => $smtp_password, ':femail' => $from_email, ':fname' => $from_name,
-                    ':id' => $settings['id']
+                    ':bkey' => $brevo_api_key, ':id' => $settings['id']
                 ]);
             } else {
                 // First time saving settings
                 $stmt = $pdo->prepare(
-                    "INSERT INTO smtp_settings (smtp_host, smtp_port, smtp_username, smtp_password, from_email, from_name) VALUES (:host, :port, :user, :pass, :femail, :fname)"
+                    "INSERT INTO smtp_settings (smtp_host, smtp_port, smtp_username, smtp_password, from_email, from_name, brevo_api_key) VALUES (:host, :port, :user, :pass, :femail, :fname, :bkey)"
                 );
                 $stmt->execute([
                     ':host' => $smtp_host, ':port' => $smtp_port, ':user' => $smtp_username,
-                    ':pass' => $smtp_password, ':femail' => $from_email, ':fname' => $from_name
+                    ':pass' => $smtp_password, ':femail' => $from_email, ':fname' => $from_name,
+                    ':bkey' => $brevo_api_key
                 ]);
             }
-            $success = 'SMTP settings saved successfully.';
+            $success = 'Sender settings saved successfully.';
             $settings = $pdo->query("SELECT * FROM smtp_settings ORDER BY id DESC LIMIT 1")->fetch();
         } catch (PDOException $e) {
             $error = 'Database error while saving settings.';
@@ -70,27 +77,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
       <div class="card shadow-sm">
         <div class="card-body">
-          <p class="text-muted">Connect your own email sending account here. Get these details from your email provider (Mailtrap, SendGrid, Gmail SMTP, Microsoft 365, etc).</p>
+          <p class="text-muted">Emails are sent via <a href="https://www.brevo.com" target="_blank">Brevo</a>. Create your own free Brevo account, verify your sending domain there, then paste your API key below.</p>
           <form method="post">
             <div class="mb-3">
-              <label class="form-label">SMTP Host</label>
-              <input type="text" name="smtp_host" class="form-control" placeholder="e.g. sandbox.smtp.mailtrap.io" value="<?= htmlspecialchars($settings['smtp_host'] ?? '') ?>" required>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">SMTP Port</label>
-              <input type="number" name="smtp_port" class="form-control" placeholder="e.g. 2525 or 587" value="<?= htmlspecialchars($settings['smtp_port'] ?? '587') ?>" required>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">SMTP Username</label>
-              <input type="text" name="smtp_username" class="form-control" value="<?= htmlspecialchars($settings['smtp_username'] ?? '') ?>" required>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">SMTP Password</label>
-              <input type="password" name="smtp_password" class="form-control" value="<?= htmlspecialchars($settings['smtp_password'] ?? '') ?>" required>
+              <label class="form-label">Brevo API Key</label>
+              <input type="password" name="brevo_api_key" class="form-control" placeholder="xkeysib-..." value="<?= htmlspecialchars($settings['brevo_api_key'] ?? '') ?>" required>
+              <small class="text-muted">Find this in your Brevo account under Settings → SMTP & API → API Keys.</small>
             </div>
             <div class="mb-3">
               <label class="form-label">From Email</label>
               <input type="email" name="from_email" class="form-control" placeholder="e.g. security@yourcompany.com" value="<?= htmlspecialchars($settings['from_email'] ?? '') ?>" required>
+              <small class="text-muted">Must be an address on a domain you've verified in Brevo.</small>
             </div>
             <div class="mb-3">
               <label class="form-label">From Name</label>
